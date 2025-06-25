@@ -333,7 +333,8 @@ def admin_dashboard():
 
 # User Dashboard
 def user_dashboard():
-    import openai
+   import openai
+   openai.api_key = st.secrets["OPENAI_API_KEY"]
 
     st.sidebar.title("User Menu")
     choice = st.sidebar.radio("Go to", [
