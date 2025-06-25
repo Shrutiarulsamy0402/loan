@@ -333,17 +333,19 @@ def admin_dashboard():
 
 # User Dashboard
 def user_dashboard():
+    import openai
+
     st.sidebar.title("User Menu")
     choice = st.sidebar.radio("Go to", [
-       "📈 Account Summary",
-       "📝 Apply for Loan",
-       "📊 Loan Status",
-       "💵 Transactions",
-       "🏦 Transfer ammount",   # 👈 Added this
-       "💳 Pay Monthly EMI",
-       "📚 Loan Repayment History"
-   ])
-
+        "📈 Account Summary",
+        "📝 Apply for Loan",
+        "📊 Loan Status",
+        "💵 Transactions",
+        "🏦 Transfer Between Accounts",
+        "💳 Pay Monthly EMI",
+        "📚 Loan Repayment History",
+        "🤖 AI Assistant Help"
+    ])
     user_id = st.session_state.user["user_id"]
 
     if choice == "📈 Account Summary":
@@ -380,11 +382,80 @@ def user_dashboard():
         user_loans = loans_df[loans_df["user_id"] == user_id]
         st.dataframe(user_loans)
 
-
     elif choice == "💵 Transactions":
         st.subheader("Transaction History")
         tx = transactions_df[transactions_df["user_id"] == user_id]
         st.dataframe(tx)
+
+    elif choice == "🏦 Transfer Between Accounts":
+        st.subheader("Transfer Amount to Another Account")
+
+        sender_account = accounts_df[accounts_df["user_id"] == user_id].iloc[0]
+        sender_balance = sender_account["balance"]
+        sender_account_no = sender_account["account_no"]
+
+        st.write(f"💳 Your Account Number: `{sender_account_no}`")
+        st.write(f"💰 Your Current Balance: ₹{sender_balance}")
+
+        recipient_account_no = st.text_input("Recipient Account Number")
+
+        if recipient_account_no:
+            recipient_row = accounts_df[accounts_df["account_no"] == recipient_account_no]
+            if not recipient_row.empty:
+                recipient_user_id = recipient_row.iloc[0]["user_id"]
+                recipient_user = users_df[users_df["user_id"] == recipient_user_id].iloc[0]
+                recipient_name = recipient_user["username"]
+                recipient_mobile = recipient_row.iloc[0]["mobile"]
+                st.info(f"👤 Recipient Name: **{recipient_name}**\n📱 Mobile: **{recipient_mobile}**")
+            else:
+                st.warning("⚠️ No user found with this account number.")
+
+        transfer_amount = st.number_input("Amount to Transfer", min_value=1.0)
+
+        payment_method = st.radio("Select Payment Method", ["UPI", "Net Banking", "Bank Transfer"])
+        entered_password = st.text_input("Enter your password to confirm", type="password")
+
+        if st.button("Transfer"):
+            sender_user_row = users_df[users_df["user_id"] == user_id]
+            actual_password = sender_user_row.iloc[0]["password"]
+
+            if not recipient_account_no:
+                st.warning("Please enter a valid recipient account number.")
+            elif recipient_account_no == sender_account_no:
+                st.error("❌ You cannot transfer to your own account.")
+            elif recipient_account_no not in accounts_df["account_no"].values:
+                st.error("❌ Recipient account not found.")
+            elif transfer_amount > sender_balance:
+                st.error("❌ Insufficient balance.")
+            elif entered_password != actual_password:
+                st.error("❌ Incorrect password. Please try again.")
+            else:
+                accounts_df.loc[accounts_df["user_id"] == user_id, "balance"] -= transfer_amount
+                accounts_df.loc[accounts_df["account_no"] == recipient_account_no, "balance"] += transfer_amount
+                save_csv(accounts_df, accounts_file)
+
+                recipient_user_id = accounts_df[accounts_df["account_no"] == recipient_account_no].iloc[0]["user_id"]
+                sender_tx = {
+                    "user_id": user_id,
+                    "loan_id": "",
+                    "amount": -transfer_amount,
+                    "method": f"Transfer Out ({payment_method})",
+                    "date": pd.Timestamp.today().strftime('%Y-%m-%d')
+                }
+                recipient_tx = {
+                    "user_id": recipient_user_id,
+                    "loan_id": "",
+                    "amount": transfer_amount,
+                    "method": f"Transfer In ({payment_method})",
+                    "date": pd.Timestamp.today().strftime('%Y-%m-%d')
+                }
+                transactions_df.loc[len(transactions_df)] = sender_tx
+                transactions_df.loc[len(transactions_df)] = recipient_tx
+                save_csv(transactions_df, transactions_file)
+
+                st.success(f"✅ ₹{transfer_amount} transferred to account `{recipient_account_no}` successfully!")
+                updated_sender_balance = accounts_df[accounts_df["user_id"] == user_id].iloc[0]["balance"]
+                st.info(f"💰 Updated Balance: ₹{updated_sender_balance}")
 
     elif choice == "💳 Pay Monthly EMI":
         st.subheader("Pay Monthly EMI")
@@ -395,13 +466,11 @@ def user_dashboard():
 
         selected_loan_id = st.selectbox("Select Loan ID", user_loans["loan_id"].values)
         loan_row = user_loans[user_loans["loan_id"] == selected_loan_id].iloc[0]
-
         loan_amount = loan_row["amount"]
         application_date = pd.to_datetime(loan_row["application_date"], errors="coerce")
         annual_interest_rate = 10
         tenure_months = 12
         monthly_rate = annual_interest_rate / (12 * 100)
-
         emi = (loan_amount * monthly_rate * (1 + monthly_rate) ** tenure_months) / ((1 + monthly_rate) ** tenure_months - 1)
         emi = round(emi, 2)
 
@@ -452,17 +521,12 @@ def user_dashboard():
                 "EMI Amount": emi,
                 "Status": status
             })
-
         schedule_df = pd.DataFrame(emi_schedule)
         st.dataframe(schedule_df)
 
     elif choice == "📚 Loan Repayment History":
         st.subheader("Loan Repayment History")
         user_tx = transactions_df[transactions_df["user_id"] == user_id]
-        required_cols = {"loan_id", "amount"}
-        if not required_cols.issubset(user_tx.columns):
-            st.warning("⚠️ Transactions data is missing 'loan_id' or 'amount' columns.")
-            return
         if user_tx.empty:
             st.info("No repayments made yet.")
         else:
@@ -470,56 +534,40 @@ def user_dashboard():
             summary = user_tx.groupby("loan_id")["amount"].sum().reset_index().rename(columns={"amount": "Total Paid"})
             st.write("### Summary of Paid Amount by Loan")
             st.dataframe(summary)
-            
-    elif choice == "🏦 Transfer ammount":
-        st.subheader("Transfer Amount to Another Account")
 
-        sender_account = accounts_df[accounts_df["user_id"] == user_id].iloc[0]
-        recipient_account_no = st.text_input("Recipient Account Number")
-        transfer_amount = st.number_input("Amount to Transfer", min_value=1.0)
+    elif choice == "🤖 AI Assistant Help":
+        st.subheader("🤖 AI Chat Assistant")
+        st.markdown("Ask any questions related to your account, loan, EMI, transfer, or any feature in the app.")
 
-        if st.button("Transfer"):
-            if not recipient_account_no:
-                st.warning("Please enter a valid recipient account number.")
-            elif sender_account["account_no"] == recipient_account_no:
-                st.error("You cannot transfer to your own account.")
-            elif transfer_amount > sender_account["balance"]:
-                st.error("Insufficient balance.")
-            elif recipient_account_no not in accounts_df["account_no"].values:
-                st.error("Recipient account not found.")
+        if "chat_history" not in st.session_state:
+            st.session_state.chat_history = []
+
+        for user_input, bot_response in st.session_state.chat_history:
+            st.markdown(f"**🧑 You:** {user_input}")
+            st.markdown(f"**🤖 Assistant:** {bot_response}")
+
+        user_question = st.text_input("Type your question here...")
+        if st.button("Ask"):
+            if user_question.strip():
+                try:
+                    openai.api_key = st.secrets["OPENAI_API_KEY"]
+                    response = openai.ChatCompletion.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": "You are a helpful assistant for a bank app. Guide users on how to use features like loan application, EMI payment, transfers, password recovery, etc."},
+                            {"role": "user", "content": user_question}
+                        ],
+                        max_tokens=200,
+                        temperature=0.7
+                    )
+                    bot_reply = response.choices[0].message.content.strip()
+                except Exception as e:
+                    bot_reply = f"⚠️ An error occurred while contacting the assistant: {e}"
+
+                st.session_state.chat_history.append((user_question, bot_reply))
+                st.rerun()
             else:
-            # Deduct from sender
-                accounts_df.loc[accounts_df["user_id"] == user_id, "balance"] -= transfer_amount
-            # Add to recipient
-                accounts_df.loc[accounts_df["account_no"] == recipient_account_no, "balance"] += transfer_amount
-
-            # Save updated balances
-                save_csv(accounts_df, accounts_file)
-
-            # Log transactions for both sender and recipient (optional)
-                sender_tx = {
-                  "user_id": user_id,
-                  "loan_id": "",
-                  "amount": -transfer_amount,
-                  "method": "Transfer Out",
-                  "date": pd.Timestamp.today().strftime('%Y-%m-%d')
-                }
-                recipient_user_id = accounts_df[accounts_df["account_no"] == recipient_account_no].iloc[0]["user_id"]
-                recipient_tx = {
-                   "user_id": recipient_user_id,
-                   "loan_id": "",
-                   "amount": transfer_amount,
-                   "method": "Transfer In",
-                   "date": pd.Timestamp.today().strftime('%Y-%m-%d')
-                }
-
-                transactions_df.loc[len(transactions_df)] = sender_tx
-                transactions_df.loc[len(transactions_df)] = recipient_tx
-                save_csv(transactions_df, transactions_file)
-
-                st.success(f"₹{transfer_amount} transferred successfully to account {recipient_account_no}")
-
-
+                st.warning("Please enter a question.")
 
 # Main App Logic
 if st.session_state.user:
