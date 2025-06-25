@@ -333,8 +333,8 @@ def admin_dashboard():
 
 # User Dashboard
 def user_dashboard():
-   import openai
-   openai.api_key = st.secrets["OPENAI_API_KEY"]
+    import openai
+    openai.api_key = st.secrets["OPENAI_API_KEY"]
 
     st.sidebar.title("User Menu")
     choice = st.sidebar.radio("Go to", [
@@ -412,7 +412,6 @@ def user_dashboard():
                 st.warning("⚠️ No user found with this account number.")
 
         transfer_amount = st.number_input("Amount to Transfer", min_value=1.0)
-
         payment_method = st.radio("Select Payment Method", ["UPI", "Net Banking", "Bank Transfer"])
         entered_password = st.text_input("Enter your password to confirm", type="password")
 
@@ -551,7 +550,6 @@ def user_dashboard():
         if st.button("Ask"):
             if user_question.strip():
                 try:
-                    openai.api_key = st.secrets["OPENAI_API_KEY"]
                     response = openai.ChatCompletion.create(
                         model="gpt-3.5-turbo",
                         messages=[
