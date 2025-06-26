@@ -535,43 +535,42 @@ def user_dashboard():
             st.write("### Summary of Paid Amount by Loan")
             st.dataframe(summary)
 
-from openai import OpenAI
+    from openai import OpenAI
 
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-elif choice == "🤖 AI Assistant Help":
-    st.subheader("🤖 AI Chat Assistant")
-    st.markdown("Ask any questions related to your account, loan, EMI, transfer, or any feature in the app.")
+    elif choice == "🤖 AI Assistant Help":
+        st.subheader("🤖 AI Chat Assistant")
+        st.markdown("Ask any questions related to your account, loan, EMI, transfer, or any feature in the app.")
 
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = []
+        if "chat_history" not in st.session_state:
+           st.session_state.chat_history = []
 
-    for user_input, bot_response in st.session_state.chat_history:
-        st.markdown(f"**🧑 You:** {user_input}")
-        st.markdown(f"**🤖 Assistant:** {bot_response}")
+        for user_input, bot_response in st.session_state.chat_history:
+           st.markdown(f"**🧑 You:** {user_input}")
+           st.markdown(f"**🤖 Assistant:** {bot_response}")
 
-    user_question = st.text_input("Type your question here...")
-    if st.button("Ask"):
-        if user_question.strip():
-            try:
-                response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are a helpful assistant for a bank app. Guide users on how to use features like loan application, EMI payment, transfers, password recovery, etc."},
-                        {"role": "user", "content": user_question}
-                    ],
-                    max_tokens=200,
-                    temperature=0.7
-                )
-                bot_reply = response.choices[0].message.content.strip()
-            except Exception as e:
-                bot_reply = f"⚠️ An error occurred while contacting the assistant: {e}"
+        user_question = st.text_input("Type your question here...")
+        if st.button("Ask"):
+            if user_question.strip():
+                try:
+                    response = client.chat.completions.create(
+                      model="gpt-3.5-turbo",
+                      messages=[
+                          {"role": "system", "content": "You are a helpful assistant for a bank app. Guide users on how to use features like loan application, EMI payment, transfers, password recovery, etc."},
+                          {"role": "user", "content": user_question}
+                      ],
+                      max_tokens=200,
+                      temperature=0.7
+                    )
+                    bot_reply = response.choices[0].message.content.strip()
+                except Exception as e:
+                    bot_reply = f"⚠️ An error occurred while contacting the assistant: {e}"
 
-            st.session_state.chat_history.append((user_question, bot_reply))
-            st.rerun()
-        else:
-            st.warning("Please enter a question.")
-
+                st.session_state.chat_history.append((user_question, bot_reply))
+                st.rerun()
+           else:
+                st.warning("Please enter a question.")
 
 # Main App Logic
 if st.session_state.user:
