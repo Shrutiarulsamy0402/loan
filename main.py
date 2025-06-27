@@ -165,6 +165,8 @@ def login():
 # Admin Dashboard
 def admin_dashboard():
     import matplotlib.pyplot as plt
+    import random
+
     st.sidebar.title("Admin Panel")
     option = st.sidebar.radio("Select", [
         "📃 All Applications",
@@ -215,14 +217,27 @@ def admin_dashboard():
                 loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "status"] = "approved"
                 loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "remarks"] = f"Auto-approved. {remark}"
                 st.success(f"✅ Loan {loan_id} auto-approved (Low Risk)")
+
             elif risk_score >= 61:
-                auto_reason = "Auto-declined due to high predicted risk (above 60%)"
-                full_remark = f"{auto_reason}. {remark}"
+                auto_reason = random.choice([
+                    "Low credit score based on prior history",
+                    "Insufficient income compared to requested amount",
+                    "Debt-to-income ratio too high",
+                    "Missing financial documentation",
+                    "No verifiable employment details",
+                    "Loan amount exceeds eligibility",
+                    "Unstable job profile detected",
+                    "Repeated rejections in past applications",
+                    "Incomplete KYC compliance",
+                    "Application failed risk assessment rules"
+                ])
+                full_remark = f"Auto-declined: {auto_reason}. {remark}"
                 loans_df.loc[loans_df["loan_id"] == loan_id, "status"] = "declined"
                 loans_df.loc[loans_df["loan_id"] == loan_id, "remarks"] = full_remark
                 loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "status"] = "declined"
                 loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "remarks"] = full_remark
                 st.error(f"❌ Loan {loan_id} auto-declined (High Risk)\n📝 Reason: {auto_reason}")
+
             else:
                 review_required.append((row, risk_score))
 
@@ -338,6 +353,7 @@ def admin_dashboard():
         purpose_summary.plot(kind="bar", stacked=True, ax=ax2)
         ax2.set_title("Loan Purpose vs Status")
         st.pyplot(fig2)
+
 
 
 # User Dashboard
