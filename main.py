@@ -348,6 +348,7 @@ def user_dashboard():
         "📚 Loan Repayment History",
         "🤖 AI Assistant Help"
     ])
+
     user_id = st.session_state.user["user_id"]
 
     if choice == "📈 Account Summary":
@@ -388,77 +389,71 @@ def user_dashboard():
         st.dataframe(tx)
 
     elif choice == "🏦 Transfer Between Accounts":
-    st.subheader("Transfer Amount to Another Account")
+        st.subheader("Transfer Amount to Another Account")
 
-    # Read the sender's account details from accounts.csv
-    sender_account = accounts_df[accounts_df["user_id"] == user_id].iloc[0]
-    sender_balance = sender_account["balance"]
-    sender_account_no = sender_account["account_number"]
+        sender_account = accounts_df[accounts_df["user_id"] == user_id].iloc[0]
+        sender_balance = sender_account["balance"]
+        sender_account_no = sender_account["account_number"]
 
-    st.write(f"💳 Your Account Number: `{sender_account_no}`")
-    st.write(f"💰 Your Current Balance: ₹{sender_balance}")
+        st.write(f"💳 Your Account Number: `{sender_account_no}`")
+        st.write(f"💰 Your Current Balance: ₹{sender_balance}")
 
-    recipient_account_no = st.text_input("Recipient Account Number")
+        recipient_account_no = st.text_input("Recipient Account Number")
 
-    # Lookup recipient from accounts.csv
-    if recipient_account_no:
-        recipient_row = accounts_df[accounts_df["account_number"] == recipient_account_no]
-        if not recipient_row.empty:
-            recipient_user_id = recipient_row.iloc[0]["user_id"]
-            recipient_user = users_df[users_df["user_id"] == recipient_user_id].iloc[0]
-            recipient_name = recipient_user["username"]
-            recipient_mobile = recipient_row.iloc[0]["mobile"]
-            st.info(f"👤 Recipient Name: **{recipient_name}**\n📱 Mobile: **{recipient_mobile}**")
-        else:
-            st.warning("⚠️ No user found with this account number.")
+        if recipient_account_no:
+            recipient_row = accounts_df[accounts_df["account_number"] == recipient_account_no]
+            if not recipient_row.empty:
+                recipient_user_id = recipient_row.iloc[0]["user_id"]
+                recipient_user = users_df[users_df["user_id"] == recipient_user_id].iloc[0]
+                recipient_name = recipient_user["username"]
+                recipient_mobile = recipient_row.iloc[0]["mobile"]
+                st.info(f"👤 Recipient Name: **{recipient_name}**\n📱 Mobile: **{recipient_mobile}**")
+            else:
+                st.warning("⚠️ No user found with this account number.")
 
-    transfer_amount = st.number_input("Amount to Transfer", min_value=1.0)
-    payment_method = st.radio("Select Payment Method", ["UPI", "Net Banking", "Bank Transfer"])
-    entered_password = st.text_input("Enter your password to confirm", type="password")
+        transfer_amount = st.number_input("Amount to Transfer", min_value=1.0)
+        payment_method = st.radio("Select Payment Method", ["UPI", "Net Banking", "Bank Transfer"])
+        entered_password = st.text_input("Enter your password to confirm", type="password")
 
-    if st.button("Transfer"):
-        actual_password = users_df[users_df["user_id"] == user_id].iloc[0]["password"]
+        if st.button("Transfer"):
+            actual_password = users_df[users_df["user_id"] == user_id].iloc[0]["password"]
+            if not recipient_account_no:
+                st.warning("Please enter a valid recipient account number.")
+            elif recipient_account_no == sender_account_no:
+                st.error("❌ You cannot transfer to your own account.")
+            elif recipient_account_no not in accounts_df["account_number"].values:
+                st.error("❌ Recipient account not found.")
+            elif transfer_amount > sender_balance:
+                st.error("❌ Insufficient balance.")
+            elif entered_password != actual_password:
+                st.error("❌ Incorrect password.")
+            else:
+                accounts_df.loc[accounts_df["user_id"] == user_id, "balance"] -= transfer_amount
+                accounts_df.loc[accounts_df["account_number"] == recipient_account_no, "balance"] += transfer_amount
+                save_csv(accounts_df, accounts_file)
 
-        if not recipient_account_no:
-            st.warning("Please enter a valid recipient account number.")
-        elif recipient_account_no == sender_account_no:
-            st.error("❌ You cannot transfer to your own account.")
-        elif recipient_account_no not in accounts_df["account_number"].values:
-            st.error("❌ Recipient account not found.")
-        elif transfer_amount > sender_balance:
-            st.error("❌ Insufficient balance.")
-        elif entered_password != actual_password:
-            st.error("❌ Incorrect password. Please try again.")
-        else:
-            # Update balances
-            accounts_df.loc[accounts_df["user_id"] == user_id, "balance"] -= transfer_amount
-            accounts_df.loc[accounts_df["account_number"] == recipient_account_no, "balance"] += transfer_amount
-            save_csv(accounts_df, accounts_file)
+                sender_tx = {
+                    "user_id": user_id,
+                    "loan_id": "",
+                    "amount": -transfer_amount,
+                    "method": f"Transfer Out ({payment_method})",
+                    "date": pd.Timestamp.today().strftime('%Y-%m-%d')
+                }
+                recipient_user_id = accounts_df[accounts_df["account_number"] == recipient_account_no].iloc[0]["user_id"]
+                recipient_tx = {
+                    "user_id": recipient_user_id,
+                    "loan_id": "",
+                    "amount": transfer_amount,
+                    "method": f"Transfer In ({payment_method})",
+                    "date": pd.Timestamp.today().strftime('%Y-%m-%d')
+                }
+                transactions_df.loc[len(transactions_df)] = sender_tx
+                transactions_df.loc[len(transactions_df)] = recipient_tx
+                save_csv(transactions_df, transactions_file)
 
-            recipient_user_id = accounts_df[accounts_df["account_number"] == recipient_account_no].iloc[0]["user_id"]
-
-            # Add transactions
-            sender_tx = {
-                "user_id": user_id,
-                "loan_id": "",
-                "amount": -transfer_amount,
-                "method": f"Transfer Out ({payment_method})",
-                "date": pd.Timestamp.today().strftime('%Y-%m-%d')
-            }
-            recipient_tx = {
-                "user_id": recipient_user_id,
-                "loan_id": "",
-                "amount": transfer_amount,
-                "method": f"Transfer In ({payment_method})",
-                "date": pd.Timestamp.today().strftime('%Y-%m-%d')
-            }
-            transactions_df.loc[len(transactions_df)] = sender_tx
-            transactions_df.loc[len(transactions_df)] = recipient_tx
-            save_csv(transactions_df, transactions_file)
-
-            updated_balance = accounts_df[accounts_df["user_id"] == user_id].iloc[0]["balance"]
-            st.success(f"✅ ₹{transfer_amount} transferred to `{recipient_account_no}` successfully!")
-            st.info(f"💰 Updated Balance: ₹{updated_balance}")
+                new_balance = accounts_df[accounts_df["user_id"] == user_id].iloc[0]["balance"]
+                st.success(f"✅ ₹{transfer_amount} transferred to `{recipient_account_no}` successfully!")
+                st.info(f"💰 Updated Balance: ₹{new_balance}")
 
     elif choice == "💳 Pay Monthly EMI":
         st.subheader("Pay Monthly EMI")
@@ -553,6 +548,7 @@ def user_dashboard():
                 st.rerun()
             else:
                 st.warning("Please enter a question.")
+
 
 
 # Main App Logic
