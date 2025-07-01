@@ -184,7 +184,7 @@ def admin_dashboard():
             filtered_loans = loans_df[loans_df["status"] == sort_option]
         st.dataframe(filtered_loans.reset_index(drop=True))
 
-    elif option == "✅ Pending Loans":
+   elif option == "✅ Pending Loans":
     from xgboost import XGBClassifier
     st.subheader("Manual Loan Approvals")
 
@@ -192,6 +192,8 @@ def admin_dashboard():
     if train_df.empty or len(train_df["status"].unique()) < 2:
         st.warning("Not enough historical data to train model.")
         return
+
+    # Rest of the logic...
 
     train_df = train_df[["amount", "income", "status"]].dropna()
     X = train_df[["amount", "income"]]
