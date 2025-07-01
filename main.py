@@ -385,66 +385,95 @@ def user_dashboard():
         acc = accounts_df[accounts_df["user_id"] == user_id]
         st.dataframe(acc)
 
-    elif choice == "📝 Apply for Loan":
+        elif choice == "📝 Apply for Loan":
         st.subheader("Loan Application Form")
-        amount = st.number_input("Loan Amount", min_value=1000)
-        purpose = st.selectbox("Purpose", ["Education", "Medical", "Home Renovation", "Vehicle", "Business", "Personal"])
-        income = st.number_input("Monthly Income", min_value=0)
-        if st.button("Submit Application"):
-            train_df = loans_df[loans_df["status"] != "pending"]
-            if train_df.shape[0] < 10 or len(train_df["status"].unique()) < 2:
-                st.warning("Model couldn't auto-decide due to insufficient training data.")
-                decision = "pending"
-                remarks = "Awaiting admin review"
+
+        # Aadhaar Verification
+        aadhaar_input = st.text_input("Enter your Aadhaar Number")
+        verified = False
+
+        if st.button("Verify Aadhaar"):
+            user_aadhaar = accounts_df[accounts_df["user_id"] == user_id]["aadhar"].values[0] if "aadhar" in accounts_df.columns else None
+            if user_aadhaar and str(user_aadhaar) == aadhaar_input:
+                st.success("✅ Aadhaar verified successfully.")
+                verified = True
+                st.session_state.aadhaar_verified = True
             else:
-                train_df = train_df[["amount", "income", "status"]].dropna()
-                X_train = train_df[["amount", "income"]]
-                y_train = (train_df["status"] == "approved").astype(int)
+                st.error("❌ Aadhaar verification failed.")
+                st.session_state.aadhaar_verified = False
 
-                model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
-                model.fit(X_train, y_train)
+        if st.session_state.get("aadhaar_verified", False):
+            # Document Uploads
+            st.markdown("### 📎 Upload Required Documents")
+            id_proof = st.file_uploader("Identity Proof (PAN, Voter ID, Passport, Aadhaar, etc.)", type=["pdf", "jpg", "png"])
+            address_proof = st.file_uploader("Address Proof (Driving License, Passport, Aadhaar, etc.)", type=["pdf", "jpg", "png"])
+            income_proof = st.file_uploader("Income Proof (Last 2 years ITR/Form 16, 3 months salary slips)", type=["pdf", "jpg", "png"])
+            bank_statement = st.file_uploader("Bank Statements (Last 12 months)", type=["pdf", "jpg", "png"])
 
-                X_new = np.array([[amount, income]])
-                prob = model.predict_proba(X_new)[0][1]
-                risk_score = round((1 - prob) * 100, 2)
+            amount = st.number_input("Loan Amount", min_value=1000)
+            purpose = st.selectbox("Purpose", ["Education", "Medical", "Home Renovation", "Vehicle", "Business", "Personal"])
+            income = st.number_input("Monthly Income", min_value=0)
 
-                if risk_score <= 39:
-                    decision = "approved"
-                    remarks = f"Auto-approved. Risk Score: {risk_score}%"
-                elif risk_score >= 61:
-                    auto_reason = random.choice([
-                        "Low credit score based on prior history",
-                        "Insufficient income compared to requested amount",
-                        "Debt-to-income ratio too high",
-                        "Missing financial documentation",
-                        "Loan amount exceeds eligibility"
-                    ])
-                    decision = "declined"
-                    remarks = f"Auto-declined: {auto_reason}. Risk Score: {risk_score}%"
+            all_docs_uploaded = id_proof and address_proof and income_proof and bank_statement
+
+            if st.button("Submit Application"):
+                if not all_docs_uploaded:
+                    st.warning("⚠️ Please upload all required documents before submission.")
                 else:
-                    decision = "pending"
-                    remarks = f"Awaiting admin review. Risk Score: {risk_score}%"
+                    train_df = loans_df[loans_df["status"] != "pending"]
+                    if train_df.shape[0] < 10 or len(train_df["status"].unique()) < 2:
+                        st.warning("Model couldn't auto-decide due to insufficient training data.")
+                        decision = "pending"
+                        remarks = "Awaiting admin review"
+                    else:
+                        train_df = train_df[["amount", "income", "status"]].dropna()
+                        X_train = train_df[["amount", "income"]]
+                        y_train = (train_df["status"] == "approved").astype(int)
 
-            loan_id = f"L{len(loans_df)+1:03d}"
-            new_loan = {
-                "loan_id": loan_id,
-                "user_id": user_id,
-                "amount": amount,
-                "purpose": purpose,
-                "income": income,
-                "status": decision,
-                "application_date": pd.Timestamp.today().strftime('%Y-%m-%d'),
-                "remarks": remarks
-            }
+                        model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
+                        model.fit(X_train, y_train)
 
-            loans_df = pd.concat([loans_df, pd.DataFrame([new_loan])], ignore_index=True)
-            loan_status_df = pd.concat([loan_status_df, pd.DataFrame([new_loan])], ignore_index=True)
+                        X_new = np.array([[amount, income]])
+                        prob = model.predict_proba(X_new)[0][1]
+                        risk_score = round((1 - prob) * 100, 2)
 
-            save_csv(loans_df, loans_file)
-            save_csv(loan_status_df, loan_status_file)
+                        if risk_score <= 39:
+                            decision = "approved"
+                            remarks = f"Auto-approved. Risk Score: {risk_score}%"
+                        elif risk_score >= 61:
+                            auto_reason = random.choice([
+                                "Low credit score based on prior history",
+                                "Insufficient income compared to requested amount",
+                                "Debt-to-income ratio too high",
+                                "Missing financial documentation",
+                                "Loan amount exceeds eligibility"
+                            ])
+                            decision = "declined"
+                            remarks = f"Auto-declined: {auto_reason}. Risk Score: {risk_score}%"
+                        else:
+                            decision = "pending"
+                            remarks = f"Awaiting admin review. Risk Score: {risk_score}%"
 
-            st.success(f"Loan Application Submitted! Status: **{decision.capitalize()}**")
-            st.info(f"📝 Remarks: {remarks}")
+                    loan_id = f"L{len(loans_df)+1:03d}"
+                    new_loan = {
+                        "loan_id": loan_id,
+                        "user_id": user_id,
+                        "amount": amount,
+                        "purpose": purpose,
+                        "income": income,
+                        "status": decision,
+                        "application_date": pd.Timestamp.today().strftime('%Y-%m-%d'),
+                        "remarks": remarks
+                    }
+
+                    loans_df = pd.concat([loans_df, pd.DataFrame([new_loan])], ignore_index=True)
+                    loan_status_df = pd.concat([loan_status_df, pd.DataFrame([new_loan])], ignore_index=True)
+
+                    save_csv(loans_df, loans_file)
+                    save_csv(loan_status_df, loan_status_file)
+
+                    st.success(f"Loan Application Submitted! Status: **{decision.capitalize()}**")
+                    st.info(f"📝 Remarks: {remarks}")
 
     elif choice == "📊 Loan Status":
         st.subheader("Your Loan Applications")
