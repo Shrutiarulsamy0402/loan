@@ -166,6 +166,7 @@ def login():
 def admin_dashboard():
     import matplotlib.pyplot as plt
     import random
+    from xgboost import XGBClassifier
 
     st.sidebar.title("Admin Panel")
     option = st.sidebar.radio("Select", [
@@ -184,117 +185,113 @@ def admin_dashboard():
             filtered_loans = loans_df[loans_df["status"] == sort_option]
         st.dataframe(filtered_loans.reset_index(drop=True))
 
-   elif option == "✅ Pending Loans":
-    from xgboost import XGBClassifier
-    st.subheader("Manual Loan Approvals")
+    elif option == "✅ Pending Loans":
+        st.subheader("Manual Loan Approvals")
 
-    train_df = loans_df[loans_df["status"] != "pending"]
-    if train_df.empty or len(train_df["status"].unique()) < 2:
-        st.warning("Not enough historical data to train model.")
-        return
+        train_df = loans_df[loans_df["status"] != "pending"]
+        if train_df.empty or len(train_df["status"].unique()) < 2:
+            st.warning("Not enough historical data to train model.")
+            return
 
-    # Rest of the logic...
+        train_df = train_df[["amount", "income", "status"]].dropna()
+        X = train_df[["amount", "income"]]
+        y = (train_df["status"] == "approved").astype(int)
 
-    train_df = train_df[["amount", "income", "status"]].dropna()
-    X = train_df[["amount", "income"]]
-    y = (train_df["status"] == "approved").astype(int)
+        model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
+        model.fit(X, y)
 
-    model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
-    model.fit(X, y)
+        pending_loans = loans_df[loans_df["status"] == "pending"]
+        if pending_loans.empty:
+            st.info("No pending loan applications.")
+            return
 
-    pending_loans = loans_df[loans_df["status"] == "pending"]
-    if pending_loans.empty:
-        st.info("No pending loan applications.")
-        return
+        review_required = []
+        for idx, row in pending_loans.iterrows():
+            X_test = np.array([[row["amount"], row["income"]]])
+            prob = model.predict_proba(X_test)[0][1]
+            risk_score = round((1 - prob) * 100, 2)
+            loan_id = row['loan_id']
+            remark = f"Predicted Risk Score: {risk_score}%"
 
-    review_required = []
-    for idx, row in pending_loans.iterrows():
-        X_test = np.array([[row["amount"], row["income"]]])
-        prob = model.predict_proba(X_test)[0][1]
-        risk_score = round((1 - prob) * 100, 2)
-        loan_id = row['loan_id']
-        remark = f"Predicted Risk Score: {risk_score}%"
+            if risk_score <= 39:
+                loans_df.loc[loans_df["loan_id"] == loan_id, "status"] = "approved"
+                loans_df.loc[loans_df["loan_id"] == loan_id, "remarks"] = f"Auto-approved. {remark}"
+                loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "status"] = "approved"
+                loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "remarks"] = f"Auto-approved. {remark}"
+                st.success(f"✅ Loan {loan_id} auto-approved (Low Risk)")
 
-        if risk_score <= 39:
-            loans_df.loc[loans_df["loan_id"] == loan_id, "status"] = "approved"
-            loans_df.loc[loans_df["loan_id"] == loan_id, "remarks"] = f"Auto-approved. {remark}"
-            loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "status"] = "approved"
-            loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "remarks"] = f"Auto-approved. {remark}"
-            st.success(f"✅ Loan {loan_id} auto-approved (Low Risk)")
+            elif risk_score >= 61:
+                auto_reason = random.choice([
+                    "Low credit score based on prior history",
+                    "Insufficient income compared to requested amount",
+                    "Debt-to-income ratio too high",
+                    "Missing financial documentation",
+                    "No verifiable employment details",
+                    "Loan amount exceeds eligibility",
+                    "Unstable job profile detected",
+                    "Repeated rejections in past applications",
+                    "Incomplete KYC compliance",
+                    "Application failed risk assessment rules"
+                ])
+                full_remark = f"Auto-declined: {auto_reason}. {remark}"
+                loans_df.loc[loans_df["loan_id"] == loan_id, "status"] = "declined"
+                loans_df.loc[loans_df["loan_id"] == loan_id, "remarks"] = full_remark
+                loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "status"] = "declined"
+                loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "remarks"] = full_remark
+                st.error(f"❌ Loan {loan_id} auto-declined (High Risk)\n📝 Reason: {auto_reason}")
 
-        elif risk_score >= 61:
-            auto_reason = random.choice([
-                "Low credit score based on prior history",
-                "Insufficient income compared to requested amount",
-                "Debt-to-income ratio too high",
-                "Missing financial documentation",
-                "No verifiable employment details",
-                "Loan amount exceeds eligibility",
-                "Unstable job profile detected",
-                "Repeated rejections in past applications",
-                "Incomplete KYC compliance",
-                "Application failed risk assessment rules"
-            ])
-            full_remark = f"Auto-declined: {auto_reason}. {remark}"
-            loans_df.loc[loans_df["loan_id"] == loan_id, "status"] = "declined"
-            loans_df.loc[loans_df["loan_id"] == loan_id, "remarks"] = full_remark
-            loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "status"] = "declined"
-            loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "remarks"] = full_remark
-            st.error(f"❌ Loan {loan_id} auto-declined (High Risk)\n📝 Reason: {auto_reason}")
+            else:
+                review_required.append((row, risk_score))
 
-        else:
-            review_required.append((row, risk_score))
+        save_csv(loans_df, loans_file)
+        save_csv(loan_status_df, loan_status_file)
 
-    save_csv(loans_df, loans_file)
-    save_csv(loan_status_df, loan_status_file)
+        if review_required:
+            st.warning("⚠️ Loans requiring admin review (Average Risk)")
+            if "loan_action_taken" not in st.session_state:
+                st.session_state.loan_action_taken = False
 
-    if review_required:
-        st.warning("⚠️ Loans requiring admin review (Average Risk)")
-        if "loan_action_taken" not in st.session_state:
-            st.session_state.loan_action_taken = False
+            for row, risk_score in review_required:
+                st.markdown(f"### Loan ID: {row['loan_id']}")
+                st.write(row)
+                st.info(f"Predicted Risk Score: {risk_score}%")
 
-        for row, risk_score in review_required:
-            st.markdown(f"### Loan ID: {row['loan_id']}")
-            st.write(row)
-            st.info(f"Predicted Risk Score: {risk_score}%")
-
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button(f"Approve {row['loan_id']}", key=f"approve_{row['loan_id']}"):
-                    loans_df.loc[loans_df["loan_id"] == row["loan_id"], "status"] = "approved"
-                    loans_df.loc[loans_df["loan_id"] == row["loan_id"], "remarks"] = f"Admin-approved. Risk Score: {risk_score}%"
-                    loan_status_df.loc[loan_status_df["loan_id"] == row["loan_id"], "status"] = "approved"
-                    loan_status_df.loc[loan_status_df["loan_id"] == row["loan_id"], "remarks"] = f"Admin-approved. Risk Score: {risk_score}%"
-                    save_csv(loans_df, loans_file)
-                    save_csv(loan_status_df, loan_status_file)
-                    st.session_state.loan_action_taken = True
-
-            with col2:
-                with st.expander(f"❌ Decline {row['loan_id']}"):
-                    reason = st.selectbox(
-                        f"Select reason for rejecting {row['loan_id']}",
-                        ["Low credit score", "Incomplete documentation", "Not proper certification", "Unstable income", "Other"],
-                        key=f"reason_select_{row['loan_id']}"
-                    )
-                    if reason == "Other":
-                        reason_custom = st.text_input("Enter custom reason", key=f"reason_custom_{row['loan_id']}")
-                        final_reason = reason_custom.strip() if reason_custom.strip() else "Admin-declined"
-                    else:
-                        final_reason = reason
-
-                    if st.button(f"Confirm Rejection for {row['loan_id']}", key=f"confirm_reject_{row['loan_id']}"):
-                        loans_df.loc[loans_df["loan_id"] == row["loan_id"], "status"] = "declined"
-                        loans_df.loc[loans_df["loan_id"] == row["loan_id"], "remarks"] = f"{final_reason}. Risk Score: {risk_score}%"
-                        loan_status_df.loc[loan_status_df["loan_id"] == row["loan_id"], "status"] = "declined"
-                        loan_status_df.loc[loan_status_df["loan_id"] == row["loan_id"], "remarks"] = f"{final_reason}. Risk Score: {risk_score}%"
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button(f"Approve {row['loan_id']}", key=f"approve_{row['loan_id']}"):
+                        loans_df.loc[loans_df["loan_id"] == row["loan_id"], "status"] = "approved"
+                        loans_df.loc[loans_df["loan_id"] == row["loan_id"], "remarks"] = f"Admin-approved. Risk Score: {risk_score}%"
+                        loan_status_df.loc[loan_status_df["loan_id"] == row["loan_id"], "status"] = "approved"
+                        loan_status_df.loc[loan_status_df["loan_id"] == row["loan_id"], "remarks"] = f"Admin-approved. Risk Score: {risk_score}%"
                         save_csv(loans_df, loans_file)
                         save_csv(loan_status_df, loan_status_file)
                         st.session_state.loan_action_taken = True
 
-        if st.session_state.loan_action_taken:
-            st.session_state.loan_action_taken = False
-            st.rerun()
+                with col2:
+                    with st.expander(f"❌ Decline {row['loan_id']}"):
+                        reason = st.selectbox(
+                            f"Select reason for rejecting {row['loan_id']}",
+                            ["Low credit score", "Incomplete documentation", "Not proper certification", "Unstable income", "Other"],
+                            key=f"reason_select_{row['loan_id']}"
+                        )
+                        if reason == "Other":
+                            reason_custom = st.text_input("Enter custom reason", key=f"reason_custom_{row['loan_id']}")
+                            final_reason = reason_custom.strip() if reason_custom.strip() else "Admin-declined"
+                        else:
+                            final_reason = reason
 
+                        if st.button(f"Confirm Rejection for {row['loan_id']}", key=f"confirm_reject_{row['loan_id']}"):
+                            loans_df.loc[loans_df["loan_id"] == row["loan_id"], "status"] = "declined"
+                            loans_df.loc[loans_df["loan_id"] == row["loan_id"], "remarks"] = f"{final_reason}. Risk Score: {risk_score}%"
+                            loan_status_df.loc[loan_status_df["loan_id"] == row["loan_id"], "status"] = "declined"
+                            loan_status_df.loc[loan_status_df["loan_id"] == row["loan_id"], "remarks"] = f"{final_reason}. Risk Score: {risk_score}%"
+                            save_csv(loans_df, loans_file)
+                            save_csv(loan_status_df, loan_status_file)
+                            st.session_state.loan_action_taken = True
+
+            if st.session_state.loan_action_taken:
+                st.session_state.loan_action_taken = False
+                st.rerun()
 
     elif option == "🔍 Fetch User Info":
         st.subheader("Fetch User Details")
