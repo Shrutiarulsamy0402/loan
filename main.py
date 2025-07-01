@@ -296,36 +296,36 @@ def admin_dashboard():
 
 
         elif option == "🔍 Fetch User Info":
-        st.subheader("Fetch User Details")
-        username_input = st.text_input("Enter Username")
+           st.subheader("Fetch User Details")
+           username_input = st.text_input("Enter Username")
 
-        if st.button("Fetch Info"):
-            user_info = users_df[users_df["username"] == username_input]
+           if st.button("Fetch Info"):
+               user_info = users_df[users_df["username"] == username_input]
 
-            if user_info.empty:
-                st.error("User not found.")
-            else:
-                user_id = user_info.iloc[0]['user_id']
-                account_info = accounts_df[accounts_df['user_id'] == user_id]
-                transaction_info = transactions_df[transactions_df['user_id'] == user_id]
-                loan_info = loans_df[loans_df['user_id'] == user_id]
+               if user_info.empty:
+                  st.error("User not found.")
+               else:
+                  user_id = user_info.iloc[0]['user_id']
+                  account_info = accounts_df[accounts_df['user_id'] == user_id]
+                  transaction_info = transactions_df[transactions_df['user_id'] == user_id]
+                  loan_info = loans_df[loans_df['user_id'] == user_id]
 
-                st.write("👤 User Info", user_info.drop(columns=['password'], errors='ignore'))
-                st.write("🏦 Account Info", account_info)
-                st.write("💸 Transaction History", transaction_info)
-                st.write("📄 Loan History", loan_info)
+                  st.write("👤 User Info", user_info.drop(columns=['password'], errors='ignore'))
+                  st.write("🏦 Account Info", account_info)
+                  st.write("💸 Transaction History", transaction_info)
+                  st.write("📄 Loan History", loan_info)
 
                 # 🔎 Show uploaded documents
-                st.write("📎 Uploaded Loan Documents")
-                for _, loan in loan_info.iterrows():
-                    loan_id = loan["loan_id"]
-                    st.markdown(f"#### Loan ID: `{loan_id}`")
-                    doc_path = os.path.join("documents", loan_id)
+                  st.write("📎 Uploaded Loan Documents")
+                  for _, loan in loan_info.iterrows():
+                     loan_id = loan["loan_id"]
+                     st.markdown(f"#### Loan ID: `{loan_id}`")
+                     doc_path = os.path.join("documents", loan_id)
 
-                    if os.path.isdir(doc_path):
-                        files = os.listdir(doc_path)
-                        if files:
-                            for file in files:
+                     if os.path.isdir(doc_path):
+                         files = os.listdir(doc_path)
+                         if files:
+                             for file in files:
                                 file_path = os.path.join(doc_path, file)
                                 with open(file_path, "rb") as f:
                                     file_bytes = f.read()
@@ -335,9 +335,9 @@ def admin_dashboard():
                                         file_name=file,
                                         mime="application/octet-stream"
                                     )
-                        else:
+                         else:
                             st.info("No documents uploaded for this loan.")
-                    else:
+                     else:
                         st.warning("📁 Document folder not found for this loan.")
 
 
