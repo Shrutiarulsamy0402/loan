@@ -385,7 +385,7 @@ def user_dashboard():
         acc = accounts_df[accounts_df["user_id"] == user_id]
         st.dataframe(acc)
 
-        elif choice == "📝 Apply for Loan":
+    elif choice == "📝 Apply for Loan":
         st.subheader("Loan Application Form")
 
         # Aadhaar Verification
