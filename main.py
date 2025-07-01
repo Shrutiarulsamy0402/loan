@@ -375,12 +375,12 @@ def user_dashboard():
 
     user_id = st.session_state.user["user_id"]
 
-    if choice == "📈 Account Summary":
+        if choice == "📈 Account Summary":
         st.subheader("Account Summary")
         acc = accounts_df[accounts_df["user_id"] == user_id]
         st.dataframe(acc)
 
-    elif choice == "📝 Apply for Loan":
+        elif choice == "📝 Apply for Loan":
         st.subheader("Loan Application Form")
         amount = st.number_input("Loan Amount", min_value=1000)
         purpose = st.selectbox("Purpose", ["Education", "Medical", "Home Renovation", "Vehicle", "Business", "Personal"])
@@ -392,7 +392,7 @@ def user_dashboard():
                 st.warning("Model couldn't auto-decide due to insufficient training data.")
                 decision = "pending"
                 remarks = "Awaiting admin review"
-            else:
+        else:
                 train_df = train_df[["amount", "income", "status"]].dropna()
                 X_train = train_df[["amount", "income"]]
                 y_train = (train_df["status"] == "approved").astype(int)
@@ -417,7 +417,7 @@ def user_dashboard():
                     ])
                     decision = "declined"
                     remarks = f"Auto-declined: {auto_reason}. Risk Score: {risk_score}%"
-                else:
+        else:
                     decision = "pending"
                     remarks = f"Awaiting admin review. Risk Score: {risk_score}%"
 
@@ -441,17 +441,17 @@ def user_dashboard():
 
             st.success(f"Loan Application Submitted! Status: **{decision.capitalize()}**")
             st.info(f"📝 Remarks: {remarks}")
-elif choice == "📊 Loan Status":
+        elif choice == "📊 Loan Status":
         st.subheader("Your Loan Applications")
         user_loans = loans_df[loans_df["user_id"] == user_id]
         st.dataframe(user_loans)
 
-    elif choice == "💵 Transactions":
+        elif choice == "💵 Transactions":
         st.subheader("Transaction History")
         tx = transactions_df[transactions_df["user_id"] == user_id]
         st.dataframe(tx)
 
-    elif choice == "🏦 Transfer Between Accounts":
+        elif choice == "🏦 Transfer Between Accounts":
         st.subheader("Transfer Amount to Another Account")
 
         sender_account = accounts_df[accounts_df["user_id"] == user_id].iloc[0]
@@ -471,7 +471,7 @@ elif choice == "📊 Loan Status":
                 recipient_name = recipient_user["username"]
                 recipient_mobile = recipient_row.iloc[0]["mobile"]
                 st.info(f"👤 Recipient Name: **{recipient_name}**\n📱 Mobile: **{recipient_mobile}**")
-            else:
+        else:
                 st.warning("⚠️ No user found with this account number.")
 
         transfer_amount = st.number_input("Amount to Transfer", min_value=1.0)
@@ -490,7 +490,7 @@ elif choice == "📊 Loan Status":
                 st.error("❌ Insufficient balance.")
             elif entered_password != actual_password:
                 st.error("❌ Incorrect password.")
-            else:
+        else:
                 accounts_df.loc[accounts_df["user_id"] == user_id, "balance"] -= transfer_amount
                 accounts_df.loc[accounts_df["account_number"] == recipient_account_no, "balance"] += transfer_amount
                 save_csv(accounts_df, accounts_file)
@@ -518,7 +518,7 @@ elif choice == "📊 Loan Status":
                 st.success(f"✅ ₹{transfer_amount} transferred to `{recipient_account_no}` successfully!")
                 st.info(f"💰 Updated Balance: ₹{new_balance}")
 
-    elif choice == "💳 Pay Monthly EMI":
+        elif choice == "💳 Pay Monthly EMI":
         st.subheader("Pay Monthly EMI")
         approved_loans = loans_df[(loans_df["user_id"] == user_id) & (loans_df["status"] == "approved")]
         if approved_loans.empty:
@@ -570,7 +570,7 @@ elif choice == "📊 Loan Status":
             })
         st.dataframe(pd.DataFrame(schedule))
 
-    elif choice == "📚 Loan Repayment History":
+        elif choice == "📚 Loan Repayment History":
         st.subheader("Loan Repayment History")
         tx = transactions_df[transactions_df["user_id"] == user_id]
         if tx.empty:
@@ -581,7 +581,7 @@ elif choice == "📊 Loan Status":
             st.write("### Summary by Loan")
             st.dataframe(summary)
 
-    elif choice == "🤖 AI Assistant Help":
+        elif choice == "🤖 AI Assistant Help":
         st.subheader("🤖 AI Chat Assistant")
         st.markdown("Ask any questions related to your account, EMI, transfers, etc.")
 
@@ -609,7 +609,7 @@ elif choice == "📊 Loan Status":
 
                 st.session_state.chat_history.append((question, reply))
                 st.rerun()
-            else:
+        else:
                 st.warning("Please enter a question.")
 
 
@@ -622,7 +622,7 @@ if st.session_state.user:
         st.rerun()
     if st.session_state.user.get("role") == "admin":
         admin_dashboard()
-    else:
+        else:
         user_dashboard()
-else:
+        else:
     login()
