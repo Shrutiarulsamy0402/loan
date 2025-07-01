@@ -621,7 +621,8 @@ if st.session_state.user:
         st.rerun()
     if st.session_state.user.get("role") == "admin":
         admin_dashboard()
-        else:
+    else:
         user_dashboard()
-        else:
+else:
     login()
+
