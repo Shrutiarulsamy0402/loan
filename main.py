@@ -290,9 +290,10 @@ def admin_dashboard():
                             save_csv(loan_status_df, loan_status_file)
                             st.session_state.loan_action_taken = True
 
-            if st.session_state.loan_action_taken:
-                st.session_state.loan_action_taken = False
-                st.rerun()
+        if st.session_state.get("loan_action_taken", False):
+           st.session_state.loan_action_taken = False
+           st.rerun()
+
 
     elif option == "🔍 Fetch User Info":
         st.subheader("Fetch User Details")
