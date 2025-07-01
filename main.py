@@ -164,10 +164,6 @@ def login():
 
 # Admin Dashboard
 def admin_dashboard():
-    import matplotlib.pyplot as plt
-    import random
-    from xgboost import XGBClassifier
-
     st.sidebar.title("Admin Panel")
     option = st.sidebar.radio("Select", [
         "📃 All Applications",
@@ -179,10 +175,7 @@ def admin_dashboard():
     if option == "📃 All Applications":
         st.subheader("All Loan Applications")
         sort_option = st.selectbox("🔍 Filter by Loan Status", ["All", "approved", "pending", "declined"])
-        if sort_option == "All":
-            filtered_loans = loans_df
-        else:
-            filtered_loans = loans_df[loans_df["status"] == sort_option]
+        filtered_loans = loans_df if sort_option == "All" else loans_df[loans_df["status"] == sort_option]
         st.dataframe(filtered_loans.reset_index(drop=True))
 
     elif option == "✅ Pending Loans":
@@ -238,7 +231,7 @@ def admin_dashboard():
                 loans_df.loc[loans_df["loan_id"] == loan_id, "remarks"] = full_remark
                 loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "status"] = "declined"
                 loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "remarks"] = full_remark
-                st.error(f"❌ Loan {loan_id} auto-declined (High Risk)\n📝 Reason: {auto_reason}")
+                st.error(f"❌ Loan {loan_id} auto-declined (High Risk)\\n📝 Reason: {auto_reason}")
             else:
                 row["risk_score"] = risk_score
                 review_required.append(row)
@@ -248,7 +241,6 @@ def admin_dashboard():
 
         if review_required:
             st.warning("⚠️ Loans requiring admin review (Average Risk)")
-
             for row in review_required:
                 loan_id = row["loan_id"]
                 risk_score = row["risk_score"]
@@ -269,63 +261,54 @@ def admin_dashboard():
                         st.rerun()
 
                 with col2:
-                    with st.expander(f"❌ Decline {row['loan_id']}"):
-                        reason = st.selectbox(
-                            f"Select reason for rejecting {row['loan_id']}",
-                            ["Low credit score", "Incomplete documentation", "Not proper certification", "Unstable income", "Other"],
-                            key=f"reason_select_{row['loan_id']}"
-                        )
-                        if reason == "Other":
-                            reason_custom = st.text_input("Enter custom reason", key=f"reason_custom_{row['loan_id']}")
-                            final_reason = reason_custom.strip() if reason_custom.strip() else "Admin-declined"
-                        else:
-                            final_reason = reason
-
-                        if st.button(f"Confirm Rejection for {row['loan_id']}", key=f"confirm_reject_{row['loan_id']}"):
-                            loans_df.loc[loans_df["loan_id"] == row["loan_id"], "status"] = "declined"
-                            loans_df.loc[loans_df["loan_id"] == row["loan_id"], "remarks"] = f"{final_reason}. Risk Score: {risk_score}%"
-                            loan_status_df.loc[loan_status_df["loan_id"] == row["loan_id"], "status"] = "declined"
-                            loan_status_df.loc[loan_status_df["loan_id"] == row["loan_id"], "remarks"] = f"{final_reason}. Risk Score: {risk_score}%"
-                            save_csv(loans_df, loans_file)
-                            save_csv(loan_status_df, loan_status_file)
-                            st.session_state.loan_action_taken = True
+                    if st.button(f"❌ Decline {loan_id}", key=f"decline_{loan_id}"):
+                        reason = random.choice([
+                            "Low credit score",
+                            "Debt to income ratio too high",
+                            "Insufficient documentation"
+                        ])
+                        loans_df.loc[loans_df["loan_id"] == loan_id, "status"] = "declined"
+                        loans_df.loc[loans_df["loan_id"] == loan_id, "remarks"] = f"Admin-declined: {reason}. Risk Score: {risk_score}%"
+                        loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "status"] = "declined"
+                        loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "remarks"] = f"Admin-declined: {reason}. Risk Score: {risk_score}%"
+                        save_csv(loans_df, loans_file)
+                        save_csv(loan_status_df, loan_status_file)
+                        st.error(f"Loan {loan_id} declined: {reason}")
+                        st.rerun()
 
         if st.session_state.get("loan_action_taken", False):
-           st.session_state.loan_action_taken = False
-           st.rerun()
+            st.session_state.loan_action_taken = False
+            st.rerun()
 
+    elif option == "🔍 Fetch User Info":
+        st.subheader("Fetch User Details")
+        username_input = st.text_input("Enter Username")
+        if st.button("Fetch Info"):
+            user_info = users_df[users_df["username"] == username_input]
+            if user_info.empty:
+                st.error("User not found.")
+            else:
+                user_id = user_info.iloc[0]["user_id"]
+                account_info = accounts_df[accounts_df["user_id"] == user_id]
+                transaction_info = transactions_df[transactions_df["user_id"] == user_id]
+                loan_info = loans_df[loans_df["user_id"] == user_id]
 
-        elif option == "🔍 Fetch User Info":
-           st.subheader("Fetch User Details")
-           username_input = st.text_input("Enter Username")
+                st.write("👤 User Info", user_info.drop(columns=['password'], errors='ignore'))
+                st.write("🏦 Account Info", account_info)
+                st.write("💸 Transaction History", transaction_info)
+                st.write("📄 Loan History", loan_info)
 
-           if st.button("Fetch Info"):
-               user_info = users_df[users_df["username"] == username_input]
+                # 📎 Show uploaded documents
+                st.write("📎 Uploaded Loan Documents")
+                for _, loan in loan_info.iterrows():
+                    loan_id = loan["loan_id"]
+                    st.markdown(f"#### Loan ID: `{loan_id}`")
+                    doc_path = os.path.join("documents", loan_id)
 
-               if user_info.empty:
-                  st.error("User not found.")
-               else:
-                  user_id = user_info.iloc[0]['user_id']
-                  account_info = accounts_df[accounts_df['user_id'] == user_id]
-                  transaction_info = transactions_df[transactions_df['user_id'] == user_id]
-                  loan_info = loans_df[loans_df['user_id'] == user_id]
-
-                  st.write("👤 User Info", user_info.drop(columns=['password'], errors='ignore'))
-                  st.write("🏦 Account Info", account_info)
-                  st.write("💸 Transaction History", transaction_info)
-                  st.write("📄 Loan History", loan_info)
-
-                # 🔎 Show uploaded documents
-                  st.write("📎 Uploaded Loan Documents")
-                  for _, loan in loan_info.iterrows():
-                     loan_id = loan["loan_id"]
-                     st.markdown(f"#### Loan ID: `{loan_id}`")
-                     doc_path = os.path.join("documents", loan_id)
-
-                     if os.path.isdir(doc_path):
-                         files = os.listdir(doc_path)
-                         if files:
-                             for file in files:
+                    if os.path.isdir(doc_path):
+                        files = os.listdir(doc_path)
+                        if files:
+                            for file in files:
                                 file_path = os.path.join(doc_path, file)
                                 with open(file_path, "rb") as f:
                                     file_bytes = f.read()
@@ -335,12 +318,55 @@ def admin_dashboard():
                                         file_name=file,
                                         mime="application/octet-stream"
                                     )
-                         else:
+                        else:
                             st.info("No documents uploaded for this loan.")
-                     else:
+                    else:
                         st.warning("📁 Document folder not found for this loan.")
 
+    elif option == "📊 Loan Summary & Analytics":
+        st.subheader("📊 Loan Analytics Dashboard")
+        loans_df["application_date"] = pd.to_datetime(loans_df["application_date"], errors='coerce')
+        start_date, end_date = st.date_input("Select Date Range", [loans_df["application_date"].min(), loans_df["application_date"].max()])
+        filtered = loans_df[(loans_df["application_date"] >= pd.to_datetime(start_date)) &
+                            (loans_df["application_date"] <= pd.to_datetime(end_date))]
 
+        if filtered.empty:
+            st.info("No loan applications found in this date range.")
+            return
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Loans", len(filtered))
+        col2.metric("Approved", (filtered["status"] == "approved").sum())
+        col3.metric("Declined", (filtered["status"] == "declined").sum())
+
+        csv = filtered.to_csv(index=False)
+        st.download_button("📥 Download Filtered Loan Data", csv, "loan_summary.csv", "text/csv")
+
+        monthly = filtered.groupby([filtered["application_date"].dt.to_period("M"), "status"]).size().unstack().fillna(0)
+        monthly.index = monthly.index.astype(str)
+        st.write("### 📈 Monthly Loan Approval Trends")
+        fig1, ax1 = plt.subplots()
+        monthly.plot(ax=ax1, marker='o')
+        ax1.set_title("Loan Status Over Time")
+        st.pyplot(fig1)
+
+        st.write("### ✅ Low Risk People (Auto-Approved Loans with Low Risk Score)")
+        low_risk_loans = filtered[
+            (filtered["status"] == "approved") &
+            (filtered["remarks"].str.contains("Auto-approved", na=False))
+        ]
+        if low_risk_loans.empty:
+            st.info("No auto-approved low risk loans found.")
+        else:
+            display_cols = ["loan_id", "user_id", "amount", "income", "purpose", "application_date", "remarks"]
+            st.dataframe(low_risk_loans[display_cols].sort_values("application_date", ascending=False).reset_index(drop=True))
+
+        st.write("### 🎯 Loan Status by Purpose")
+        purpose_summary = filtered.groupby(["purpose", "status"]).size().unstack().fillna(0)
+        fig2, ax2 = plt.subplots()
+        purpose_summary.plot(kind="bar", stacked=True, ax=ax2)
+        ax2.set_title("Loan Purpose vs Status")
+        st.pyplot(fig2)
 
 
 # User Dashboard
