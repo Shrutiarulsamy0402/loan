@@ -398,22 +398,19 @@ def user_dashboard():
     elif choice == "📝 Apply for Loan":
         st.subheader("Loan Application Form")
 
-        # Aadhaar Verification
-        aadhaar_input = st.text_input("Enter your Aadhaar Number")
+        aadhaar_input = st.text_input("Enter your Aadhaar Number to verify")
         verified = False
 
         if st.button("Verify Aadhaar"):
             user_aadhaar = accounts_df[accounts_df["user_id"] == user_id]["aadhar"].values[0] if "aadhar" in accounts_df.columns else None
             if user_aadhaar and str(user_aadhaar) == aadhaar_input:
                 st.success("✅ Aadhaar verified successfully.")
-                verified = True
                 st.session_state.aadhaar_verified = True
             else:
                 st.error("❌ Aadhaar verification failed.")
                 st.session_state.aadhaar_verified = False
 
         if st.session_state.get("aadhaar_verified", False):
-            # Document Uploads
             st.markdown("### 📎 Upload Required Documents")
             id_proof = st.file_uploader("Identity Proof (PAN, Voter ID, Passport, Aadhaar, etc.)", type=["pdf", "jpg", "png"])
             address_proof = st.file_uploader("Address Proof (Driving License, Passport, Aadhaar, etc.)", type=["pdf", "jpg", "png"])
@@ -476,14 +473,28 @@ def user_dashboard():
                         "remarks": remarks
                     }
 
-                    loans_df = pd.concat([loans_df, pd.DataFrame([new_loan])], ignore_index=True)
-                    loan_status_df = pd.concat([loan_status_df, pd.DataFrame([new_loan])], ignore_index=True)
+                    loans_df.loc[len(loans_df)] = new_loan
+                    loan_status_df.loc[len(loan_status_df)] = new_loan
 
                     save_csv(loans_df, loans_file)
                     save_csv(loan_status_df, loan_status_file)
 
+                    # Save uploaded documents
+                    doc_folder = os.path.join("documents", loan_id)
+                    os.makedirs(doc_folder, exist_ok=True)
+
+                    def save_file(uploaded_file, name):
+                        with open(os.path.join(doc_folder, name), "wb") as f:
+                            f.write(uploaded_file.read())
+
+                    save_file(id_proof, "identity_" + id_proof.name)
+                    save_file(address_proof, "address_" + address_proof.name)
+                    save_file(income_proof, "income_" + income_proof.name)
+                    save_file(bank_statement, "bank_" + bank_statement.name)
+
                     st.success(f"Loan Application Submitted! Status: **{decision.capitalize()}**")
                     st.info(f"📝 Remarks: {remarks}")
+
 
     elif choice == "📊 Loan Status":
         st.subheader("Your Loan Applications")
