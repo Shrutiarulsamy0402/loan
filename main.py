@@ -5,7 +5,7 @@ import pandas as pd
 import os
 import random
 import numpy as np
-from sklearn.linear_model import LogisticRegression
+from xgboost import XGBClassifier
 
 # Paths to CSV files
 data_path = "data"
@@ -195,7 +195,7 @@ def admin_dashboard():
         X = train_df[["amount", "income"]]
         y = (train_df["status"] == "approved").astype(int)
 
-        model = LogisticRegression()
+        model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
         model.fit(X, y)
 
         pending_loans = loans_df[loans_df["status"] == "pending"]
@@ -386,6 +386,41 @@ def user_dashboard():
         purpose = st.selectbox("Purpose", ["Education", "Medical", "Home Renovation", "Vehicle", "Business", "Personal"])
         income = st.number_input("Monthly Income", min_value=0)
         if st.button("Submit Application"):
+            # Train the model using past data
+            train_df = loans_df[loans_df["status"] != "pending"]
+            if train_df.shape[0] < 10 or len(train_df["status"].unique()) < 2:
+                st.warning("Model couldn't auto-decide due to insufficient training data.")
+                decision = "pending"
+                remarks = "Awaiting admin review"
+            else:
+                train_df = train_df[["amount", "income", "status"]].dropna()
+                X_train = train_df[["amount", "income"]]
+                y_train = (train_df["status"] == "approved").astype(int)
+
+                model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
+                model.fit(X_train, y_train)
+
+                X_new = np.array([[amount, income]])
+                prob = model.predict_proba(X_new)[0][1]
+                risk_score = round((1 - prob) * 100, 2)
+
+                if risk_score <= 39:
+                    decision = "approved"
+                    remarks = f"Auto-approved. Risk Score: {risk_score}%"
+                elif risk_score >= 61:
+                    auto_reason = random.choice([
+                        "Low credit score based on prior history",
+                        "Insufficient income compared to requested amount",
+                        "Debt-to-income ratio too high",
+                        "Missing financial documentation",
+                        "Loan amount exceeds eligibility"
+                    ])
+                    decision = "declined"
+                    remarks = f"Auto-declined: {auto_reason}. Risk Score: {risk_score}%"
+                else:
+                    decision = "pending"
+                    remarks = f"Awaiting admin review. Risk Score: {risk_score}%"
+
             loan_id = f"L{len(loans_df)+1:03d}"
             new_loan = {
                 "loan_id": loan_id,
@@ -393,16 +428,20 @@ def user_dashboard():
                 "amount": amount,
                 "purpose": purpose,
                 "income": income,
-                "status": "pending",
+                "status": decision,
                 "application_date": pd.Timestamp.today().strftime('%Y-%m-%d'),
-                "remarks": "Awaiting review"
+                "remarks": remarks
             }
-            loans_df_updated = pd.concat([loans_df, pd.DataFrame([new_loan])], ignore_index=True)
-            save_csv(loans_df_updated, loans_file)
-            save_csv(loans_df_updated, loan_status_file)
-            st.success("Loan Application Submitted!")
 
-    elif choice == "📊 Loan Status":
+            loans_df = pd.concat([loans_df, pd.DataFrame([new_loan])], ignore_index=True)
+            loan_status_df = pd.concat([loan_status_df, pd.DataFrame([new_loan])], ignore_index=True)
+
+            save_csv(loans_df, loans_file)
+            save_csv(loan_status_df, loan_status_file)
+
+            st.success(f"Loan Application Submitted! Status: **{decision.capitalize()}**")
+            st.info(f"📝 Remarks: {remarks}")
+elif choice == "📊 Loan Status":
         st.subheader("Your Loan Applications")
         user_loans = loans_df[loans_df["user_id"] == user_id]
         st.dataframe(user_loans)
