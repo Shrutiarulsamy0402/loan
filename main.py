@@ -358,8 +358,10 @@ def admin_dashboard():
 
 # User Dashboard
 def user_dashboard():
+    global loans_df, loan_status_df
     from openai import OpenAI
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
 
     st.sidebar.title("User Menu")
     choice = st.sidebar.radio("Go to", [
