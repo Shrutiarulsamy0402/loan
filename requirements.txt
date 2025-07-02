@@ -6,3 +6,4 @@ plotly
 matplotlib
 openai
 xgboost
+google-generativeai
