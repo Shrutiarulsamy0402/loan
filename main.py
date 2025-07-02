@@ -491,6 +491,12 @@ def user_dashboard():
                     save_file(address_proof, "address_" + address_proof.name)
                     save_file(income_proof, "income_" + income_proof.name)
                     save_file(bank_statement, "bank_" + bank_statement.name)
+                    st.write(f"📁 Files saved in: {doc_folder}")
+                    if os.path.exists(doc_folder):
+                        st.write("✅ Files:", os.listdir(doc_folder))
+                    else:
+                        st.error("❌ Document folder not created.")
+
 
                     st.success(f"Loan Application Submitted! Status: **{decision.capitalize()}**")
                     st.info(f"📝 Remarks: {remarks}")
