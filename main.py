@@ -649,7 +649,8 @@ def user_dashboard():
 
         import google.generativeai as genai
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel("models/gemini-1.0")  # or any model returned from genai.list_models()
+
 
         if "chat_history" not in st.session_state:
             st.session_state.chat_history = []
