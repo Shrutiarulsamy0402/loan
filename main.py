@@ -214,24 +214,12 @@ def admin_dashboard():
                 st.success(f"✅ Loan {loan_id} auto-approved (Low Risk)")
 
             elif risk_score >= 61:
-                auto_reason = random.choice([
-                    "Low credit score based on prior history",
-                    "Insufficient income compared to requested amount",
-                    "Debt-to-income ratio too high",
-                    "Missing financial documentation",
-                    "No verifiable employment details",
-                    "Loan amount exceeds eligibility",
-                    "Unstable job profile detected",
-                    "Repeated rejections in past applications",
-                    "Incomplete KYC compliance",
-                    "Application failed risk assessment rules"
-                ])
-                full_remark = f"Auto-declined: {auto_reason}. {remark}"
+                reason = "Loan failed automated risk check"
                 loans_df.loc[loans_df["loan_id"] == loan_id, "status"] = "declined"
-                loans_df.loc[loans_df["loan_id"] == loan_id, "remarks"] = full_remark
+                loans_df.loc[loans_df["loan_id"] == loan_id, "remarks"] = f"{reason}. {remark}"
                 loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "status"] = "declined"
-                loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "remarks"] = full_remark
-                st.error(f"❌ Loan {loan_id} auto-declined (High Risk)\\n📝 Reason: {auto_reason}")
+                loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "remarks"] = f"{reason}. {remark}"
+                st.error(f"❌ Loan {loan_id} auto-declined. Reason: {reason}")
             else:
                 row["risk_score"] = risk_score
                 review_required.append(row)
@@ -262,73 +250,64 @@ def admin_dashboard():
 
                 with col2:
                     if st.button(f"❌ Decline {loan_id}", key=f"decline_{loan_id}"):
-                        reason = random.choice([
-                            "Low credit score",
-                            "Debt to income ratio too high",
-                            "Insufficient documentation"
-                        ])
+                        reason = "Admin review declined"
                         loans_df.loc[loans_df["loan_id"] == loan_id, "status"] = "declined"
-                        loans_df.loc[loans_df["loan_id"] == loan_id, "remarks"] = f"Admin-declined: {reason}. Risk Score: {risk_score}%"
+                        loans_df.loc[loans_df["loan_id"] == loan_id, "remarks"] = f"{reason}. Risk Score: {risk_score}%"
                         loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "status"] = "declined"
-                        loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "remarks"] = f"Admin-declined: {reason}. Risk Score: {risk_score}%"
+                        loan_status_df.loc[loan_status_df["loan_id"] == loan_id, "remarks"] = f"{reason}. Risk Score: {risk_score}%"
                         save_csv(loans_df, loans_file)
                         save_csv(loan_status_df, loan_status_file)
-                        st.error(f"Loan {loan_id} declined: {reason}")
+                        st.error(f"Loan {loan_id} declined")
                         st.rerun()
 
-        if st.session_state.get("loan_action_taken", False):
-            st.session_state.loan_action_taken = False
-            st.rerun()
+    elif option == "🔍 Fetch User Info":
+        st.subheader("Fetch User Details")
+        username_input = st.text_input("Enter Username")
+        if st.button("Fetch Info"):
+            user_info = users_df[users_df["username"] == username_input]
+            if user_info.empty:
+                st.error("User not found.")
+            else:
+                user_id = user_info.iloc[0]["user_id"]
+                account_info = accounts_df[accounts_df["user_id"] == user_id]
+                transaction_info = transactions_df[transactions_df["user_id"] == user_id]
+                loan_info = loans_df[loans_df["user_id"] == user_id]
 
-        elif option == "🔍 Fetch User Info":
-            st.subheader("Fetch User Details")
-            username_input = st.text_input("Enter Username")
-            if st.button("Fetch Info"):
-                user_info = users_df[users_df["username"] == username_input]
-                if user_info.empty:
-                    st.error("User not found.")
-                else:
-                    user_id = user_info.iloc[0]["user_id"]
-                    account_info = accounts_df[accounts_df["user_id"] == user_id]
-                    transaction_info = transactions_df[transactions_df["user_id"] == user_id]
-                    loan_info = loans_df[loans_df["user_id"] == user_id]
+                st.write("👤 User Info", user_info.drop(columns=['password'], errors='ignore'))
+                st.write("🏦 Account Info", account_info)
+                st.write("💸 Transaction History", transaction_info)
+                st.write("📄 Loan History", loan_info)
 
-                    st.write("👤 User Info", user_info.drop(columns=['password'], errors='ignore'))
-                    st.write("🏦 Account Info", account_info)
-                    st.write("💸 Transaction History", transaction_info)
-                    st.write("📄 Loan History", loan_info)
+                st.markdown("## 📎 Uploaded Loan Documents")
+                for _, loan in loan_info.iterrows():
+                    loan_id = loan["loan_id"]
+                    st.markdown(f"### 📁 Loan ID: `{loan_id}`")
+                    doc_path = os.path.join("documents", loan_id)
 
-                    st.markdown("## 📎 Uploaded Loan Documents")
-                    for _, loan in loan_info.iterrows():
-                        loan_id = loan["loan_id"]
-                        st.markdown(f"### 📁 Loan ID: `{loan_id}`")
-                        doc_path = os.path.join("documents", loan_id)
+                    if os.path.isdir(doc_path):
+                        files = os.listdir(doc_path)
+                        if files:
+                            for file in files:
+                                file_path = os.path.join(doc_path, file)
+                                ext = os.path.splitext(file)[-1].lower()
 
-                        if os.path.isdir(doc_path):
-                            files = os.listdir(doc_path)
-                            if files:
-                                for file in files:
-                                    file_path = os.path.join(doc_path, file)
-                                    ext = os.path.splitext(file)[-1].lower()
+                                st.markdown(f"**📄 {file}**")
 
-                                    st.markdown(f"**📄 {file}**")
+                                if ext in [".jpg", ".jpeg", ".png"]:
+                                    st.image(file_path, caption=file, use_column_width=True)
 
-                                    if ext in [".jpg", ".jpeg", ".png"]:
-                                        st.image(file_path, caption=file, use_column_width=True)
+                                elif ext == ".pdf":
+                                    st.markdown(f"[Open PDF file]({file_path})")
+                                    st.components.v1.html(f'''
+                                        <iframe src="{file_path}" width="100%" height="500px"></iframe>
+                                    ''', height=550)
 
-                                    elif ext == ".pdf":
-                                        st.markdown(f"[Open PDF file]({file_path})")
-                                        st.components.v1.html(f'''
-                                            <iframe src="{file_path}" width="100%" height="500px"></iframe>
-                                        ''', height=550)
-
-                                    else:
-                                        st.info("⚠️ Unsupported preview format.")
-                            else:
-                                st.info("No documents uploaded for this loan.")
+                                else:
+                                    st.info("⚠️ Unsupported preview format.")
                         else:
-                            st.warning("📁 Document folder not found for this loan.")
-
+                            st.info("No documents uploaded for this loan.")
+                    else:
+                        st.warning("📁 Document folder not found for this loan.")
 
     elif option == "📊 Loan Summary & Analytics":
         st.subheader("📊 Loan Analytics Dashboard")
@@ -357,23 +336,13 @@ def admin_dashboard():
         ax1.set_title("Loan Status Over Time")
         st.pyplot(fig1)
 
-        st.write("### ✅ Low Risk People (Auto-Approved Loans with Low Risk Score)")
-        low_risk_loans = filtered[
-            (filtered["status"] == "approved") &
-            (filtered["remarks"].str.contains("Auto-approved", na=False))
-        ]
-        if low_risk_loans.empty:
-            st.info("No auto-approved low risk loans found.")
-        else:
-            display_cols = ["loan_id", "user_id", "amount", "income", "purpose", "application_date", "remarks"]
-            st.dataframe(low_risk_loans[display_cols].sort_values("application_date", ascending=False).reset_index(drop=True))
-
         st.write("### 🎯 Loan Status by Purpose")
         purpose_summary = filtered.groupby(["purpose", "status"]).size().unstack().fillna(0)
         fig2, ax2 = plt.subplots()
         purpose_summary.plot(kind="bar", stacked=True, ax=ax2)
         ax2.set_title("Loan Purpose vs Status")
         st.pyplot(fig2)
+
 
 
 # User Dashboard
