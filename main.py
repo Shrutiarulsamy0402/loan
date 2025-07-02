@@ -642,35 +642,33 @@ def user_dashboard():
             st.dataframe(summary)
 
     elif choice == "🤖 AI Assistant Help":
-        st.subheader("🤖 AI Chat Assistant")
-        st.markdown("Ask any questions related to your account, EMI, transfers, etc.")
+    st.subheader("🤖 AI Chat Assistant")
+    st.markdown("Ask any questions related to your account, EMI, transfers, etc.")
 
-        if "chat_history" not in st.session_state:
-            st.session_state.chat_history = []
+    import google.generativeai as genai
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    model = genai.GenerativeModel('gemini-pro')
 
-        for user_input, bot_reply in st.session_state.chat_history:
-            st.markdown(f"**🧑 You:** {user_input}")
-            st.markdown(f"**🤖 Assistant:** {bot_reply}")
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
 
-        question = st.text_input("Type your question here...")
-        if st.button("Ask"):
-            if question.strip():
-                try:
-                    response = client.chat.completions.create(
-                        model="gpt-3.5-turbo",
-                        messages=[
-                            {"role": "system", "content": "You are a helpful banking assistant."},
-                            {"role": "user", "content": question}
-                        ]
-                    )
-                    reply = response.choices[0].message.content.strip()
-                except Exception as e:
-                    reply = f"⚠️ Error: {e}"
+    for user_input, bot_reply in st.session_state.chat_history:
+        st.markdown(f"**🧑 You:** {user_input}")
+        st.markdown(f"**🤖 Assistant:** {bot_reply}")
 
-                st.session_state.chat_history.append((question, reply))
-                st.rerun()
-            else:
-                st.warning("Please enter a question.")
+    question = st.text_input("Type your question here...")
+    if st.button("Ask"):
+        if question.strip():
+            try:
+                response = model.generate_content(question)
+                reply = response.text.strip()
+            except Exception as e:
+                reply = f"⚠️ Error: {e}"
+
+            st.session_state.chat_history.append((question, reply))
+            st.rerun()
+        else:
+            st.warning("Please enter a question.")
 
 
 
