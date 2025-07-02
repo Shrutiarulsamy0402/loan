@@ -5,6 +5,7 @@ import pandas as pd
 import os
 import random
 import numpy as np
+import matplotlib.pyplot as plt
 from xgboost import XGBClassifier
 
 # Paths to CSV files
