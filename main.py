@@ -15,21 +15,37 @@ def send_loan_email(to_email, user_name, loan_id, status, remarks):
     from_email = st.secrets["EMAIL_ADDRESS"]
     from_password = st.secrets["EMAIL_PASSWORD"]
 
-    subject = f"Indian Bank - Loan Application {status.upper()} (Loan ID: {loan_id})"
+    subject = f"Indian Bank - Your Loan Application is {status.capitalize()} (Loan ID: {loan_id})"
+    
+    if status == "approved":
+        greeting = "🎉 Congratulations!"
+        msg_line = "We are pleased to inform you that your loan application has been **approved**."
+    elif status == "declined":
+        greeting = "Thank you for applying."
+        msg_line = "After careful review, we regret to inform you that your loan application has been **declined**."
+    else:
+        greeting = "Application Received!"
+        msg_line = "Your loan application is currently **under review**. We’ll notify you once a decision is made."
+
     body = f"""
     Dear {user_name},
 
-    Your loan application (Loan ID: {loan_id}) has been {status.upper()}.
+    {greeting}
 
-    Status: {status.capitalize()}
-    Remarks: {remarks}
+    {msg_line}
 
-    Thank you for banking with Indian Bank.
+    📝 **Loan ID**: {loan_id}  
+    📅 **Application Status**: {status.capitalize()}  
+    💬 **Remarks**: {remarks}
 
-    Regards,
-    Indian Bank Loan Department
+    Thank you for choosing **Indian Bank**.  
+    We're committed to supporting your financial goals.
+
+    Warm regards,  
+    **Indian Bank 🏦💸**
     """
 
+    # Set up email
     msg = MIMEMultipart()
     msg['From'] = from_email
     msg['To'] = to_email
@@ -43,7 +59,6 @@ def send_loan_email(to_email, user_name, loan_id, status, remarks):
             server.send_message(msg)
     except Exception as e:
         st.error(f"Failed to send email: {e}")
-
 
 # Paths to CSV files
 data_path = "data"
