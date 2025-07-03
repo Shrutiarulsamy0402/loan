@@ -499,6 +499,7 @@ def user_dashboard():
         aadhaar_input = st.text_input("Enter your Aadhaar Number to verify")
         verified = False
 
+
     if st.button("Verify Aadhaar"):
         user_aadhaar = accounts_df[accounts_df["user_id"] == user_id]["aadhar"].values[0] if "aadhar" in accounts_df.columns else None
         if user_aadhaar and str(user_aadhaar) == aadhaar_input:
