@@ -15,8 +15,8 @@ def send_loan_email(to_email, user_name, loan_id, status, remarks):
     from_email = st.secrets["EMAIL_ADDRESS"]
     from_password = st.secrets["EMAIL_PASSWORD"]
 
-    # Direct logo URL (use your own hosted logo)
-    logo_url = "https://i.imgur.com/Hs5xELh.png"  # Replace with your Indian Bank logo URL
+    # ✅ Your Indian Bank logo hosted on imgbb
+    logo_url = "https://i.ibb.co/PGR1xRD0/indian-bank-logo.webp"
 
     subject = f"Indian Bank - Your Loan Application is {status.capitalize()} (Loan ID: {loan_id})"
 
@@ -34,8 +34,8 @@ def send_loan_email(to_email, user_name, loan_id, status, remarks):
     <html>
       <body style="font-family: Arial, sans-serif; padding: 20px;">
         <div style="max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
-          <div style="background-color: #003366; padding: 10px 20px; border-top-left-radius: 10px; border-top-right-radius: 10px;">
-            <img src="{logo_url}" alt="Indian Bank Logo" style="height: 50px;" />
+          <div style="background-color: #003366; padding: 10px 20px; border-top-left-radius: 10px; border-top-right-radius: 10px; text-align: center;">
+            <img src="{logo_url}" alt="Indian Bank Logo" style="height: 60px;" />
           </div>
           <div style="padding: 20px;">
             <p>Dear {user_name},</p>
@@ -68,6 +68,7 @@ def send_loan_email(to_email, user_name, loan_id, status, remarks):
             server.send_message(msg)
     except Exception as e:
         st.error(f"❌ Failed to send email: {e}")
+
 
 
     # Set up email
