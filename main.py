@@ -446,7 +446,7 @@ def user_dashboard():
         st.dataframe(acc)
 
     elif choice == "📝 Apply for Loan":
-    st.subheader("Loan Application Form")
+        st.subheader("Loan Application Form")
 
     aadhaar_input = st.text_input("Enter your Aadhaar Number to verify")
     verified = False
