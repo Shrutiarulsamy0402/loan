@@ -186,6 +186,11 @@ def create_new_user():
 # Login Function
 def login():
     st.title("Indian Bank")
+
+    # Add Bank Logo (hosted image link)
+    st.image("st.image("https://imgs.search.brave.com/Y8rSbzYxVvM41U8_aV_pKUlXgfpNg0U2vD1hEiIvdCg/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly93d3cu/MW1pbjMwLmNvbS93/cC1jb250ZW50L3Vw/bG9hZHMvMjAxOC8x/Mi9oaXN0b2lyZS1s/b2dvLXhoYW1zdGVy/LnBuZw", width=150)
+)
+
     menu = st.radio("Select an option", ["Login", "Create Account", "Forgot Password?"])
 
     if menu == "Create Account":
@@ -462,114 +467,11 @@ def admin_dashboard():
 
 
 # User Dashboard
-# UPDATED USER DASHBOARD WITH LANGUAGE, THEME, PROFILE SETTINGS, PASSWORD RESET
-
-# ✅ Copy this full function into your existing main.py file, replacing the existing `user_dashboard()`
-
 def user_dashboard():
-    global loans_df, loan_status_df, users_df, accounts_df
+    global loans_df, loan_status_df
     import google.generativeai as genai
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     model = genai.GenerativeModel('gemini-pro')
-
-    # Language dictionary
-    LANG = {
-        'english': { 'account_summary': "📈 Account Summary", 'apply_loan': "📝 Apply for Loan", 'loan_status': "📊 Loan Status", 'transactions': "💵 Transactions", 'transfer': "🏦 Transfer Between Accounts", 'emi': "💳 Pay Monthly EMI", 'repayment_history': "📚 Loan Repayment History", 'assistant': "🤖 AI Assistant Help", 'settings': "⚙️ Settings" },
-        'tamil':   { 'account_summary': "📈 கணக்கு சுருக்கம்", 'apply_loan': "📝 கடன் விண்ணப்பம்", 'loan_status': "📊 கடன் நிலை", 'transactions': "💵 பரிமாற்றங்கள்", 'transfer': "🏦 கணக்குகளுக்கு இடையே பணப்பரிமாற்றம்", 'emi': "💳 மாத இதழ் கட்டணம் செலுத்தவும்", 'repayment_history': "📚 கடன் திருப்பிச் செலுத்தும் வரலாறு", 'assistant': "🤖 உதவியாளர்", 'settings': "⚙️ அமைப்புகள்" },
-        'malayalam': { 'account_summary': "📈 അക്കൗണ്ട് സംക്ഷേപം", 'apply_loan': "📝 വായ്പ അപേക്ഷ", 'loan_status': "📊 വായ്പ നില", 'transactions': "💵 ഇടപാടുകൾ", 'transfer': "🏦 അക്കൗണ്ടുകൾക്കിടയിൽ ട്രാൻസ്ഫർ", 'emi': "💳 മാസശമ്പള ഇഎംഐ അടയ്‌ക്കുക", 'repayment_history': "📚 വായ്പ അടച്ചിടൽ ചരിത്രം", 'assistant': "🤖 എഐ സഹായം", 'settings': "⚙️ ക്രമീകരണങ്ങൾ" },
-        'hindi': { 'account_summary': "📈 खाता सारांश", 'apply_loan': "📝 ऋण आवेदन", 'loan_status': "📊 ऋण स्थिति", 'transactions': "💵 लेन-देन", 'transfer': "🏦 खातों के बीच स्थानांतरण", 'emi': "💳 मासिक किस्त भुगतान करें", 'repayment_history': "📚 ऋण पुनर्भुगतान इतिहास", 'assistant': "🤖 एआई सहायक सहायता", 'settings': "⚙️ सेटिंग्स" },
-        'telugu': { 'account_summary': "📈 ఖాతా సంగ్రహం", 'apply_loan': "📝 లోన్ అప్లికేషన్", 'loan_status': "📊 లోన్ స్థితి", 'transactions': "💵 లావాదేవీలు", 'transfer': "🏦 ఖాతాల మధ్య బదిలీ", 'emi': "💳 నెలవారీ ఈఎంఐ చెల్లించండి", 'repayment_history': "📚 లోన్ రీపేమెంట్ చరిత్ర", 'assistant': "🤖 ఏఐ సహాయం", 'settings': "⚙️ సెట్టింగ్స్" }
-    }
-
-    if "language" not in st.session_state:
-        st.session_state.language = "english"
-    if "theme" not in st.session_state:
-        st.session_state.theme = "light"
-
-    lang = LANG[st.session_state.language]
-
-    st.sidebar.title("User Menu")
-    choice = st.sidebar.radio("Go to", [
-        lang['account_summary'], lang['apply_loan'], lang['loan_status'],
-        lang['transactions'], lang['transfer'], lang['emi'],
-        lang['repayment_history'], lang['assistant'], lang['settings']
-    ])
-
-    user_id = st.session_state.user["user_id"]
-
-    if choice == lang['settings']:
-        st.subheader("⚙️ User Settings")
-
-        # Language
-        st.markdown("### 🌐 Change Language")
-        new_lang = st.selectbox("Select Language", list(LANG.keys()), index=list(LANG.keys()).index(st.session_state.language))
-        st.session_state.language = new_lang
-
-        # Theme
-        st.markdown("### 🎨 Theme Preference")
-        theme = st.selectbox("Choose Theme", ["light", "dark"], index=["light", "dark"].index(st.session_state.theme))
-        st.session_state.theme = theme
-
-        # Profile Update
-        st.markdown("### 👤 Update Profile")
-        user_row = users_df[users_df["user_id"] == user_id].iloc[0]
-        acc_row = accounts_df[accounts_df["user_id"] == user_id].iloc[0]
-
-        new_username = st.text_input("Username", value=user_row["username"])
-        new_mobile = st.text_input("Mobile Number", value=acc_row["mobile"])
-        new_address = st.text_input("Address", value=acc_row["address"])
-
-        if st.button("Update Profile"):
-            users_df.loc[users_df["user_id"] == user_id, "username"] = new_username
-            accounts_df.loc[accounts_df["user_id"] == user_id, "mobile"] = new_mobile
-            accounts_df.loc[accounts_df["user_id"] == user_id, "address"] = new_address
-            save_csv(users_df, users_file)
-            save_csv(accounts_df, accounts_file)
-            st.success("✅ Profile updated successfully!")
-
-        # Password Change with Email Notification
-        st.markdown("### 🔐 Change Password")
-        new_password = st.text_input("Enter New Password", type="password")
-        confirm_password = st.text_input("Confirm Password", type="password")
-        if st.button("Send Password Reset Email"):
-            if new_password != confirm_password:
-                st.error("❌ Passwords do not match.")
-            else:
-                user_email = user_row["email"]
-                username = user_row["username"]
-                subject = "🔐 Indian Bank - Password Changed"
-                body = f"""
-Dear {username},
-
-Your password was successfully updated for your Indian Bank account.
-
-If you did not request this change, please contact support immediately.
-
-Regards,
-Indian Bank Team
-"""
-                msg = MIMEMultipart()
-                msg["From"] = st.secrets["EMAIL_ADDRESS"]
-                msg["To"] = user_email
-                msg["Subject"] = subject
-                msg.attach(MIMEText(body, "plain"))
-                try:
-                    with smtplib.SMTP("smtp.gmail.com", 587) as server:
-                        server.starttls()
-                        server.login(st.secrets["EMAIL_ADDRESS"], st.secrets["EMAIL_PASSWORD"])
-                        server.send_message(msg)
-                    users_df.loc[users_df["user_id"] == user_id, "password"] = new_password
-                    save_csv(users_df, users_file)
-                    st.success("✅ Password changed successfully and confirmation email sent.")
-                except Exception as e:
-                    st.error(f"❌ Failed to send email: {e}")
-
-        return  # End settings section
-
-    # Remaining options (apply loan, account summary, etc.) remain unchanged...
-
-    # Insert the rest of your existing `user_dashboard()` code here
-
 
 
 
