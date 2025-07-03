@@ -16,7 +16,8 @@ def send_loan_email(to_email, user_name, loan_id, status, remarks):
     from_password = st.secrets["EMAIL_PASSWORD"]
 
     # ✅ Your Indian Bank logo hosted on imgbb
-    logo_url = "https://i.ibb.co/PGR1xRD0/indian-bank-logo.webp"
+   logo_url = "https://i.ibb.co/6YfrkwB/indian-bank-logo.png"
+
 
     subject = f"Indian Bank - Your Loan Application is {status.capitalize()} (Loan ID: {loan_id})"
 
