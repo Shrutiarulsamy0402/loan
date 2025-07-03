@@ -188,7 +188,7 @@ def login():
     
 
     # ✅ Add Bank Logo
-    st.image("https://imgs.search.brave.com/Y8rSbzYxVvM41U8_aV_pKUlXgfpNg0U2vD1hEiIvdCg/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly93d3cu/MW1pbjMwLmNvbS93/cC1jb250ZW50L3Vw/bG9hZHMvMjAxOC8x/Mi9oaXN0b2lyZS1s/b2dvLXhoYW1zdGVy/LnBuZw", width=250)
+    st.image("https://imgs.search.brave.com/3snmeE1h6X_V2LAWSpZoHYAuqzMDjpb1t-6h-_oV_4I/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9jZG4u/ZnJlZWxvZ292ZWN0/b3JzLm5ldC93cC1j/b250ZW50L3VwbG9h/ZHMvMjAxOS8wMi9p/bmRpYW4tYmFuay1s/b2dvLnBuZw", width=250)
 
     menu = st.radio("Select an option", ["Login", "Create Account", "Forgot Password?"])
 
