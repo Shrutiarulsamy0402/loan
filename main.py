@@ -15,35 +15,60 @@ def send_loan_email(to_email, user_name, loan_id, status, remarks):
     from_email = st.secrets["EMAIL_ADDRESS"]
     from_password = st.secrets["EMAIL_PASSWORD"]
 
+    # Direct logo URL (use your own hosted logo)
+    logo_url = "https://i.imgur.com/Hs5xELh.png"  # Replace with your Indian Bank logo URL
+
     subject = f"Indian Bank - Your Loan Application is {status.capitalize()} (Loan ID: {loan_id})"
-    
+
     if status == "approved":
-        greeting = "🎉 Congratulations!"
-        msg_line = "We are pleased to inform you that your loan application has been **approved**."
+        greeting = "🎉 <strong>Congratulations!</strong>"
+        msg_line = "We are pleased to inform you that your loan application has been <strong>approved</strong>."
     elif status == "declined":
-        greeting = "Thank you for applying."
-        msg_line = "After careful review, we regret to inform you that your loan application has been **declined**."
+        greeting = "<strong>Thank you for applying.</strong>"
+        msg_line = "After careful review, we regret to inform you that your loan application has been <strong>declined</strong>."
     else:
-        greeting = "Application Received!"
-        msg_line = "Your loan application is currently **under review**. We’ll notify you once a decision is made."
+        greeting = "<strong>Application Received!</strong>"
+        msg_line = "Your loan application is currently <strong>under review</strong>. We’ll notify you once a decision is made."
 
-    body = f"""
-    Dear {user_name},
-
-    {greeting}
-
-    {msg_line}
-
-    📝 **Loan ID**: {loan_id}  
-    📅 **Application Status**: {status.capitalize()}  
-    💬 **Remarks**: {remarks}
-
-    Thank you for choosing **Indian Bank**.  
-    We're committed to supporting your financial goals.
-
-    Warm regards,  
-    **Indian Bank 🏦💸**
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; padding: 20px;">
+        <div style="max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+          <div style="background-color: #003366; padding: 10px 20px; border-top-left-radius: 10px; border-top-right-radius: 10px;">
+            <img src="{logo_url}" alt="Indian Bank Logo" style="height: 50px;" />
+          </div>
+          <div style="padding: 20px;">
+            <p>Dear {user_name},</p>
+            <p>{greeting}</p>
+            <p>{msg_line}</p>
+            <table style="margin-top: 10px; font-size: 15px;">
+              <tr><td><strong>📝 Loan ID:</strong></td><td>{loan_id}</td></tr>
+              <tr><td><strong>📅 Status:</strong></td><td>{status.capitalize()}</td></tr>
+              <tr><td><strong>💬 Remarks:</strong></td><td>{remarks}</td></tr>
+            </table>
+            <p style="margin-top: 20px;">Thank you for choosing <strong>Indian Bank</strong>.</p>
+            <p>We're committed to supporting your financial goals.</p>
+            <p style="margin-top: 30px;">Warm regards,<br><strong>Indian Bank Loan Department</strong></p>
+          </div>
+        </div>
+      </body>
+    </html>
     """
+
+    msg = MIMEMultipart("alternative")
+    msg['From'] = from_email
+    msg['To'] = to_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(html_body, "html"))
+
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(from_email, from_password)
+            server.send_message(msg)
+    except Exception as e:
+        st.error(f"❌ Failed to send email: {e}")
+
 
     # Set up email
     msg = MIMEMultipart()
