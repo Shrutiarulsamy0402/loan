@@ -75,7 +75,8 @@ def send_loan_email(to_email, user_name, loan_id, status, remarks):
     msg['From'] = from_email
     msg['To'] = to_email
     msg['Subject'] = subject
-    msg.attach(MIMEText(body, 'plain'))
+   msg.attach(MIMEText(html_body, 'html'))
+
 
     try:
         with smtplib.SMTP('smtp.gmail.com', 587) as server:
