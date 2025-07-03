@@ -187,9 +187,8 @@ def create_new_user():
 def login():
     st.title("Indian Bank")
 
-    # Add Bank Logo (hosted image link)
+    # ✅ Add Bank Logo
     st.image("https://imgs.search.brave.com/Y8rSbzYxVvM41U8_aV_pKUlXgfpNg0U2vD1hEiIvdCg/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly93d3cu/MW1pbjMwLmNvbS93/cC1jb250ZW50L3Vw/bG9hZHMvMjAxOC8x/Mi9oaXN0b2lyZS1s/b2dvLXhoYW1zdGVy/LnBuZw", width=150)
-)
 
     menu = st.radio("Select an option", ["Login", "Create Account", "Forgot Password?"])
 
@@ -199,7 +198,6 @@ def login():
 
     if menu == "Forgot Password?":
         st.subheader("Reset Your Password with Mobile Verification")
-
         username = st.text_input("Enter your username")
         mobile = st.text_input("Enter your registered mobile number")
         new_password = st.text_input("Enter your new password", type="password")
@@ -247,6 +245,7 @@ def login():
             st.rerun()
         else:
             st.error("Invalid username or password")
+
 
 
 # Admin Dashboard
