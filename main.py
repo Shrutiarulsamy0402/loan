@@ -285,8 +285,8 @@ def admin_dashboard():
                             st.session_state.loan_action_taken = True
 
             if st.session_state.get("loan_action_taken", False):
-            st.session_state.loan_action_taken = False
-            st.rerun()
+                st.session_state.loan_action_taken = False
+                st.rerun()
 
 
     elif option == "🔍 Fetch User Info":
