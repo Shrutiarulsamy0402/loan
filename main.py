@@ -324,8 +324,10 @@ def admin_dashboard():
                                         label=f"📄 {file}",
                                         data=file_bytes,
                                         file_name=file,
-                                        mime="application/octet-stream"
+                                        mime="application/octet-stream",
+                                        key=f"download_{loan_id}_{file}"
                                     )
+
                         else:
                             st.info("No documents uploaded for this loan.")
                     else:
