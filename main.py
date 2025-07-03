@@ -7,6 +7,43 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 from xgboost import XGBClassifier
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+def send_loan_email(to_email, user_name, loan_id, status, remarks):
+    from_email = st.secrets["EMAIL_ADDRESS"]
+    from_password = st.secrets["EMAIL_PASSWORD"]
+
+    subject = f"Indian Bank - Loan Application {status.upper()} (Loan ID: {loan_id})"
+    body = f"""
+    Dear {user_name},
+
+    Your loan application (Loan ID: {loan_id}) has been {status.upper()}.
+
+    Status: {status.capitalize()}
+    Remarks: {remarks}
+
+    Thank you for banking with Indian Bank.
+
+    Regards,
+    Indian Bank Loan Department
+    """
+
+    msg = MIMEMultipart()
+    msg['From'] = from_email
+    msg['To'] = to_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+
+    try:
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.starttls()
+            server.login(from_email, from_password)
+            server.send_message(msg)
+    except Exception as e:
+        st.error(f"Failed to send email: {e}")
+
 
 # Paths to CSV files
 data_path = "data"
@@ -409,110 +446,111 @@ def user_dashboard():
         st.dataframe(acc)
 
     elif choice == "📝 Apply for Loan":
-        st.subheader("Loan Application Form")
+    st.subheader("Loan Application Form")
 
-        aadhaar_input = st.text_input("Enter your Aadhaar Number to verify")
-        verified = False
+    aadhaar_input = st.text_input("Enter your Aadhaar Number to verify")
+    verified = False
 
-        if st.button("Verify Aadhaar"):
-            user_aadhaar = accounts_df[accounts_df["user_id"] == user_id]["aadhar"].values[0] if "aadhar" in accounts_df.columns else None
-            if user_aadhaar and str(user_aadhaar) == aadhaar_input:
-                st.success("✅ Aadhaar verified successfully.")
-                st.session_state.aadhaar_verified = True
+    if st.button("Verify Aadhaar"):
+        user_aadhaar = accounts_df[accounts_df["user_id"] == user_id]["aadhar"].values[0] if "aadhar" in accounts_df.columns else None
+        if user_aadhaar and str(user_aadhaar) == aadhaar_input:
+            st.success("✅ Aadhaar verified successfully.")
+            st.session_state.aadhaar_verified = True
+        else:
+            st.error("❌ Aadhaar verification failed.")
+            st.session_state.aadhaar_verified = False
+
+    if st.session_state.get("aadhaar_verified", False):
+        st.markdown("### 📎 Upload Required Documents")
+        id_proof = st.file_uploader("Identity Proof (PAN, Voter ID, etc.)", type=["pdf", "jpg", "png"])
+        address_proof = st.file_uploader("Address Proof", type=["pdf", "jpg", "png"])
+        income_proof = st.file_uploader("Income Proof", type=["pdf", "jpg", "png"])
+        bank_statement = st.file_uploader("Bank Statement", type=["pdf", "jpg", "png"])
+
+        amount = st.number_input("Loan Amount", min_value=1000)
+        purpose = st.selectbox("Purpose", ["Education", "Medical", "Home Renovation", "Vehicle", "Business", "Personal"])
+        income = st.number_input("Monthly Income", min_value=0)
+
+        all_docs_uploaded = id_proof and address_proof and income_proof and bank_statement
+
+        if st.button("Submit Application"):
+            if not all_docs_uploaded:
+                st.warning("⚠️ Please upload all required documents before submission.")
             else:
-                st.error("❌ Aadhaar verification failed.")
-                st.session_state.aadhaar_verified = False
-
-        if st.session_state.get("aadhaar_verified", False):
-            st.markdown("### 📎 Upload Required Documents")
-            id_proof = st.file_uploader("Identity Proof (PAN, Voter ID, Passport, Aadhaar, etc.)", type=["pdf", "jpg", "png"])
-            address_proof = st.file_uploader("Address Proof (Driving License, Passport, Aadhaar, etc.)", type=["pdf", "jpg", "png"])
-            income_proof = st.file_uploader("Income Proof (Last 2 years ITR/Form 16, 3 months salary slips)", type=["pdf", "jpg", "png"])
-            bank_statement = st.file_uploader("Bank Statements (Last 12 months)", type=["pdf", "jpg", "png"])
-
-            amount = st.number_input("Loan Amount", min_value=1000)
-            purpose = st.selectbox("Purpose", ["Education", "Medical", "Home Renovation", "Vehicle", "Business", "Personal"])
-            income = st.number_input("Monthly Income", min_value=0)
-
-            all_docs_uploaded = id_proof and address_proof and income_proof and bank_statement
-
-            if st.button("Submit Application"):
-                if not all_docs_uploaded:
-                    st.warning("⚠️ Please upload all required documents before submission.")
+                train_df = loans_df[loans_df["status"] != "pending"]
+                if train_df.shape[0] < 10 or len(train_df["status"].unique()) < 2:
+                    decision = "pending"
+                    remarks = "Awaiting admin review"
                 else:
-                    train_df = loans_df[loans_df["status"] != "pending"]
-                    if train_df.shape[0] < 10 or len(train_df["status"].unique()) < 2:
-                        st.warning("Model couldn't auto-decide due to insufficient training data.")
+                    train_df = train_df[["amount", "income", "status"]].dropna()
+                    X_train = train_df[["amount", "income"]]
+                    y_train = (train_df["status"] == "approved").astype(int)
+
+                    model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
+                    model.fit(X_train, y_train)
+
+                    X_new = np.array([[amount, income]])
+                    prob = model.predict_proba(X_new)[0][1]
+                    risk_score = round((1 - prob) * 100, 2)
+
+                    if risk_score <= 39:
+                        decision = "approved"
+                        remarks = f"Auto-approved. Risk Score: {risk_score}%"
+                    elif risk_score >= 61:
+                        auto_reason = random.choice([
+                            "Low credit score based on prior history",
+                            "Insufficient income compared to requested amount",
+                            "Debt-to-income ratio too high",
+                            "Missing financial documentation",
+                            "Loan amount exceeds eligibility"
+                        ])
+                        decision = "declined"
+                        remarks = f"Auto-declined: {auto_reason}. Risk Score: {risk_score}%"
+                    else:
                         decision = "pending"
-                        remarks = "Awaiting admin review"
-                    else:
-                        train_df = train_df[["amount", "income", "status"]].dropna()
-                        X_train = train_df[["amount", "income"]]
-                        y_train = (train_df["status"] == "approved").astype(int)
+                        remarks = f"Awaiting admin review. Risk Score: {risk_score}%"
 
-                        model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
-                        model.fit(X_train, y_train)
+                loan_id = f"L{len(loans_df)+1:03d}"
+                new_loan = {
+                    "loan_id": loan_id,
+                    "user_id": user_id,
+                    "amount": amount,
+                    "purpose": purpose,
+                    "income": income,
+                    "status": decision,
+                    "application_date": pd.Timestamp.today().strftime('%Y-%m-%d'),
+                    "remarks": remarks
+                }
 
-                        X_new = np.array([[amount, income]])
-                        prob = model.predict_proba(X_new)[0][1]
-                        risk_score = round((1 - prob) * 100, 2)
+                loans_df.loc[len(loans_df)] = new_loan
+                loan_status_df.loc[len(loan_status_df)] = new_loan
+                save_csv(loans_df, loans_file)
+                save_csv(loan_status_df, loan_status_file)
 
-                        if risk_score <= 39:
-                            decision = "approved"
-                            remarks = f"Auto-approved. Risk Score: {risk_score}%"
-                        elif risk_score >= 61:
-                            auto_reason = random.choice([
-                                "Low credit score based on prior history",
-                                "Insufficient income compared to requested amount",
-                                "Debt-to-income ratio too high",
-                                "Missing financial documentation",
-                                "Loan amount exceeds eligibility"
-                            ])
-                            decision = "declined"
-                            remarks = f"Auto-declined: {auto_reason}. Risk Score: {risk_score}%"
-                        else:
-                            decision = "pending"
-                            remarks = f"Awaiting admin review. Risk Score: {risk_score}%"
+                doc_folder = os.path.join("documents", loan_id)
+                os.makedirs(doc_folder, exist_ok=True)
 
-                    loan_id = f"L{len(loans_df)+1:03d}"
-                    new_loan = {
-                        "loan_id": loan_id,
-                        "user_id": user_id,
-                        "amount": amount,
-                        "purpose": purpose,
-                        "income": income,
-                        "status": decision,
-                        "application_date": pd.Timestamp.today().strftime('%Y-%m-%d'),
-                        "remarks": remarks
-                    }
+                def save_file(uploaded_file, name):
+                    with open(os.path.join(doc_folder, name), "wb") as f:
+                        f.write(uploaded_file.read())
 
-                    loans_df.loc[len(loans_df)] = new_loan
-                    loan_status_df.loc[len(loan_status_df)] = new_loan
+                save_file(id_proof, "identity_" + id_proof.name)
+                save_file(address_proof, "address_" + address_proof.name)
+                save_file(income_proof, "income_" + income_proof.name)
+                save_file(bank_statement, "bank_" + bank_statement.name)
 
-                    save_csv(loans_df, loans_file)
-                    save_csv(loan_status_df, loan_status_file)
+                # ✅ Email Notification
+                user_row = users_df[users_df["user_id"] == user_id]
+                user_email = user_row["email"].values[0] if "email" in user_row.columns else None
+                user_name = user_row["username"].values[0]
+                if user_email:
+                    send_loan_email(user_email, user_name, loan_id, decision, remarks)
+                else:
+                    st.warning("User email not found. Email notification skipped.")
 
-                    # Save uploaded documents
-                    doc_folder = os.path.join("documents", loan_id)
-                    os.makedirs(doc_folder, exist_ok=True)
+                st.success(f"Loan Application Submitted! Status: **{decision.capitalize()}**")
+                st.info(f"📝 Remarks: {remarks}")
 
-                    def save_file(uploaded_file, name):
-                        with open(os.path.join(doc_folder, name), "wb") as f:
-                            f.write(uploaded_file.read())
-
-                    save_file(id_proof, "identity_" + id_proof.name)
-                    save_file(address_proof, "address_" + address_proof.name)
-                    save_file(income_proof, "income_" + income_proof.name)
-                    save_file(bank_statement, "bank_" + bank_statement.name)
-                    st.write(f"📁 Files saved in: {doc_folder}")
-                    if os.path.exists(doc_folder):
-                        st.write("✅ Files:", os.listdir(doc_folder))
-                    else:
-                        st.error("❌ Document folder not created.")
-
-
-                    st.success(f"Loan Application Submitted! Status: **{decision.capitalize()}**")
-                    st.info(f"📝 Remarks: {remarks}")
 
 
     elif choice == "📊 Loan Status":
