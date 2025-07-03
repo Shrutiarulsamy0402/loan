@@ -188,7 +188,7 @@ def login():
     
 
     # ✅ Add Bank Logo
-    st.image("https://imgs.search.brave.com/3snmeE1h6X_V2LAWSpZoHYAuqzMDjpb1t-6h-_oV_4I/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9jZG4u/ZnJlZWxvZ292ZWN0/b3JzLm5ldC93cC1j/b250ZW50L3VwbG9h/ZHMvMjAxOS8wMi9p/bmRpYW4tYmFuay1s/b2dvLnBuZw", width=250)
+    st.image("https://imgs.search.brave.com/3snmeE1h6X_V2LAWSpZoHYAuqzMDjpb1t-6h-_oV_4I/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9jZG4u/ZnJlZWxvZ292ZWN0/b3JzLm5ldC93cC1j/b250ZW50L3VwbG9h/ZHMvMjAxOS8wMi9p/bmRpYW4tYmFuay1s/b2dvLnBuZw", width=350)
 
     menu = st.radio("Select an option", ["Login", "Create Account", "Forgot Password?"])
 
@@ -496,8 +496,8 @@ def user_dashboard():
     elif choice == "📝 Apply for Loan":
         st.subheader("Loan Application Form")
 
-    aadhaar_input = st.text_input("Enter your Aadhaar Number to verify")
-    verified = False
+        aadhaar_input = st.text_input("Enter your Aadhaar Number to verify")
+        verified = False
 
     if st.button("Verify Aadhaar"):
         user_aadhaar = accounts_df[accounts_df["user_id"] == user_id]["aadhar"].values[0] if "aadhar" in accounts_df.columns else None
