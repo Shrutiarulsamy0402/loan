@@ -612,7 +612,7 @@ def user_dashboard():
         st.dataframe(user_loans)
 
     elif choice == "💵 Transactions":
-        st.subheader("Transaction History")
+        st.subheader("Transactions")
         tx = transactions_df[transactions_df["user_id"] == user_id]
         st.dataframe(tx)
 
