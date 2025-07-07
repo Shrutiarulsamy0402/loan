@@ -1,9 +1,9 @@
-streamlit
+streamlit>=1.33.0
+
 pandas
 scikit-learn
 numpy
 plotly
 matplotlib
-openai
 xgboost
 deepseek-openai>=0.1.4
