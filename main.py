@@ -190,7 +190,7 @@ def login():
     # ✅ Add Bank Logo
     st.markdown("""
         <div style="text-align: center;">
-            <img src="https://imgs.search.brave.com/74wH-rFns0oL7Bw15rrg1js_fyEy24oLzGAPDAlLt6s/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly93YWxs/cGFwZXJhY2Nlc3Mu/Y29tL2Z1bGwvODQ4/OTMwNy5qcGc" width="350">
+            <img src="https://imgs.search.brave.com/3snmeE1h6X_V2LAWSpZoHYAuqzMDjpb1t-6h-_oV_4I/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9jZG4u/ZnJlZWxvZ292ZWN0/b3JzLm5ldC93cC1j/b250ZW50L3VwbG9h/ZHMvMjAxOS8wMi9p/bmRpYW4tYmFuay1s/b2dvLnBuZw" width="350">
         </div>
     """, unsafe_allow_html=True)
 
