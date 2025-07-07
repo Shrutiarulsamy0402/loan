@@ -746,39 +746,36 @@ def user_dashboard():
             st.dataframe(summary)
 
     elif choice == "🤖 AI Assistant Help":
-    st.subheader("🤖 AI Chat Assistant (Powered by DeepSeek R1 0528 AI)")
-    st.markdown("Ask any questions related to your account, EMI, transfers, etc.")
+        st.subheader("🤖 AI Chat Assistant")
+        st.markdown("Ask any questions related to your account, EMI, transfers, etc.")
 
-    from deepseek_openai import OpenAI
-    client = OpenAI(api_key=st.secrets["DEEPSEEK_API_KEY"])
+        import google.generativeai as genai
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        model = genai.GenerativeModel("gemini-pro")
+ # or any model returned from genai.list_models()
 
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = []
 
-    for user_input, bot_reply in st.session_state.chat_history:
-        st.markdown(f"**🧑 You:** {user_input}")
-        st.markdown(f"**🤖 Assistant:** {bot_reply}")
+        if "chat_history" not in st.session_state:
+            st.session_state.chat_history = []
 
-    question = st.text_input("Type your question here...")
-    if st.button("Ask"):
-        if question.strip():
-            try:
-                response = client.chat.completions.create(
-                    model="deepseek-chat",
-                    messages=[
-                        {"role": "system", "content": "You are an AI assistant for an Indian Bank loan app."},
-                        {"role": "user", "content": question}
-                    ],
-                    temperature=0.7
-                )
-                reply = response.choices[0].message.content.strip()
-            except Exception as e:
-                reply = f"⚠️ Error: {e}"
+        for user_input, bot_reply in st.session_state.chat_history:
+            st.markdown(f"**🧑 You:** {user_input}")
+            st.markdown(f"**🤖 Assistant:** {bot_reply}")
 
-            st.session_state.chat_history.append((question, reply))
-            st.rerun()
-        else:
-            st.warning("Please enter a question.")
+        question = st.text_input("Type your question here...")
+        if st.button("Ask"):
+            if question.strip():
+                try:
+                    response = model.generate_content(question)
+                    reply = response.text.strip()
+                except Exception as e:
+                    reply = f"⚠️ Error: {e}"
+
+                st.session_state.chat_history.append((question, reply))
+                st.rerun()
+            else:
+                st.warning("Please enter a question.")
+
 
 
 # Main App Logic
