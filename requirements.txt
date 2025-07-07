@@ -6,4 +6,4 @@ plotly
 matplotlib
 openai
 xgboost
-deepseek-openai
+deepseek-openai>=0.1.4
