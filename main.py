@@ -505,6 +505,10 @@ def user_dashboard():
     ])
 
     user_id = st.session_state.user["user_id"]
+    accounts_df = st.session_state.accounts_df
+    loans_df = st.session_state.loans_df
+    transactions_df = st.session_state.transactions_df
+
 
     if choice == "\ud83d\udcc8 Account Summary":
         st.subheader("Account Summary")
