@@ -475,6 +475,14 @@ def user_dashboard():
     import google.generativeai as genai
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     model = genai.GenerativeModel('gemini-pro')
+   
+    st.sidebar.title("User Menu")
+    user_id = st.session_state.user["user_id"]
+    accounts_df = st.session_state.accounts_df
+    loans_df = st.session_state.loans_df
+    transactions_df = st.session_state.transactions_df
+
+    # Dark/Light Mode Toggle
     theme_choice = st.sidebar.selectbox("🎨 Theme", ["Light", "Dark"])
     if theme_choice == "Dark":
         st.markdown("""
@@ -489,10 +497,7 @@ def user_dashboard():
                 body { background-color: white; color: black; }
             </style>
         """, unsafe_allow_html=True)
-
-
-
-    st.sidebar.title("User Menu")
+    
     choice = st.sidebar.radio("Go to", [
         "📈 Account Summary",
         "📝 Apply for Loan",
@@ -503,19 +508,16 @@ def user_dashboard():
         "📚 Loan Repayment History",
         "🤖 AI Assistant Help"
     ])
-
-    user_id = st.session_state.user["user_id"]
-    accounts_df = st.session_state.accounts_df
-    loans_df = st.session_state.loans_df
-    transactions_df = st.session_state.transactions_df
-
-
-    if choice == "\ud83d\udcc8 Account Summary":
-        st.subheader("Account Summary")
-        acc = accounts_df[accounts_df["user_id"] == user_id]
-        st.dataframe(acc)
     
-        # Calculate statistics
+    if choice == "📈 Account Summary":
+        st.subheader("Account Summary")
+    
+        acc = accounts_df[accounts_df["user_id"] == user_id]
+        if not acc.empty:
+            st.dataframe(acc)
+        else:
+            st.info("No account information found.")
+    
         user_loans = loans_df[loans_df["user_id"] == user_id]
         approved_loans = user_loans[user_loans["status"] == "approved"]
         num_loans = len(approved_loans)
@@ -549,7 +551,6 @@ def user_dashboard():
             score += 5
     
         score = min(100, score)
-    
         grade = "Excellent" if score >= 80 else "Good" if score >= 60 else "Fair" if score >= 40 else "Poor"
     
         if "credit_history" not in st.session_state:
@@ -557,41 +558,38 @@ def user_dashboard():
         st.session_state.credit_history.append(score)
     
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("\ud83d\udcb0 Monthly Income", f"\u20b9{total_income}")
-        col2.metric("\u2705 Loans Approved", num_loans)
-        col3.metric("\ud83d\udcb3 Total Repaid", f"\u20b9{total_repaid}")
-        col4.metric("\ud83d\udd04 Transactions", num_transactions)
+        col1.metric("💰 Monthly Income", f"₹{total_income}")
+        col2.metric("✅ Loans Approved", num_loans)
+        col3.metric("💳 Total Repaid", f"₹{total_repaid}")
+        col4.metric("🔄 Transactions", num_transactions)
     
         st.markdown(f"""
-            <div style="text-align: center; margin-top: 20px;">
-                <h2 style="color: #4CAF50;">\ud83d\udcca Your Credit Score: {score} / 100 ({grade})</h2>
-                <progress value="{score}" max="100" style="width: 80%; height: 25px;"></progress>
+            <div style='text-align: center; margin-top: 20px;'>
+                <h2 style='color: #4CAF50;'>📊 Your Credit Score: {score} / 100 ({grade})</h2>
+                <progress value='{score}' max='100' style='width: 80%; height: 25px;'></progress>
             </div>
         """, unsafe_allow_html=True)
     
         if len(st.session_state.credit_history) > 1:
             st.line_chart(st.session_state.credit_history)
     
-        # EMI Reminder (Feature 2)
         if not approved_loans.empty:
             loan = approved_loans.iloc[0]
-            app_date = pd.to_datetime(loan["application_date"])
+            app_date = pd.to_datetime(loan["application_date"], errors='coerce')
             paid = transactions_df[(transactions_df["user_id"] == user_id) & (transactions_df["loan_id"] == loan["loan_id"])].shape[0]
             next_due = app_date + pd.DateOffset(months=paid)
-            st.info(f"\ud83d\uddd3\ufe0f Next EMI Due: {next_due.strftime('%Y-%m-%d')} (Loan ID: {loan['loan_id']})")
+            st.info(f"📅 Next EMI Due: {next_due.strftime('%Y-%m-%d')} (Loan ID: {loan['loan_id']})")
         else:
             st.info("No active loans. Apply now to build your credit!")
     
-        # Monthly Transaction Graph (Feature 4)
         if not user_transactions.empty:
             user_transactions["date"] = pd.to_datetime(user_transactions["date"], errors='coerce')
             tx_monthly = user_transactions.groupby(user_transactions["date"].dt.to_period("M"))["amount"].sum()
             tx_monthly.index = tx_monthly.index.astype(str)
-            st.write("### \ud83d\udcca Monthly Transaction Summary")
+            st.write("### 📊 Monthly Transaction Summary")
             st.bar_chart(tx_monthly)
         else:
             st.write("No transactions to display.")
-
 
     elif choice == "📝 Apply for Loan":
         st.subheader("Loan Application Form")
