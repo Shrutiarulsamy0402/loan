@@ -483,20 +483,6 @@ def user_dashboard():
     transactions_df = st.session_state.transactions_df
 
     # Dark/Light Mode Toggle
-    theme_choice = st.sidebar.selectbox("🎨 Theme", ["Light", "Dark"])
-    if theme_choice == "Dark":
-        st.markdown("""
-            <style>
-                body { background-color: #1E1E1E; color: white; }
-                .st-bb { color: white; }
-            </style>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown("""
-            <style>
-                body { background-color: white; color: black; }
-            </style>
-        """, unsafe_allow_html=True)
     
     choice = st.sidebar.radio("Go to", [
         "📈 Account Summary",
