@@ -833,7 +833,7 @@ def user_dashboard():
 
 # Configure Gemini API
          try:
-         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+            genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
          except KeyError:
             st.error("🚨 GEMINI_API_KEY not found in Streamlit secrets. Please add it to your `secrets.toml` file.")
             st.stop() # Stop execution if API key is missing
