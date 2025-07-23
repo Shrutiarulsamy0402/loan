@@ -826,36 +826,56 @@ def user_dashboard():
             st.dataframe(summary)
 
     elif choice == "🤖 AI Assistant Help":
-        st.subheader("🤖 AI Chat Assistant")
-        st.markdown("Ask any questions related to your account, EMI, transfers, etc.")
 
-        import google.generativeai as genai
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        model = genai.GenerativeModel("gemini-pro")
- # or any model returned from genai.list_models()
+# --- AI Assistant Help Section ---
+         st.subheader("🤖 AI Chat Assistant")
+         st.markdown("Ask any questions related to your account, EMI, transfers, etc.")
 
+# Configure Gemini API
+         try:
+         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+         except KeyError:
+            st.error("🚨 GEMINI_API_KEY not found in Streamlit secrets. Please add it to your `secrets.toml` file.")
+            st.stop() # Stop execution if API key is missing
 
-        if "chat_history" not in st.session_state:
+# Initialize the Generative Model
+         try:
+            model = genai.GenerativeModel("gemini-pro")
+         except Exception as e:
+            st.error(f"Failed to initialize Gemini model: {e}")
+            st.stop()
+
+# Initialize chat history in session state
+         if "chat_history" not in st.session_state:
             st.session_state.chat_history = []
 
-        for user_input, bot_reply in st.session_state.chat_history:
+# Display previous chat messages
+         for user_input, bot_reply in st.session_state.chat_history:
             st.markdown(f"**🧑 You:** {user_input}")
             st.markdown(f"**🤖 Assistant:** {bot_reply}")
 
-        question = st.text_input("Type your question here...")
-        if st.button("Ask"):
+# User input text area
+         question = st.text_input("Type your question here...")
+
+# Ask button
+         if st.button("Ask"):
             if question.strip():
-                try:
-                    response = model.generate_content(question)
-                    reply = response.text.strip()
-                except Exception as e:
-                    reply = f"⚠️ Error: {e}"
+               try:
+            # Generate content using the Gemini Pro model
+                response = model.generate_content(question)
+                reply = response.text.strip()
+               except Exception as e:
+                reply = f"⚠️ Oops! Something went wrong: {e}. Please try again."
 
-                st.session_state.chat_history.append((question, reply))
-                st.rerun()
+        # Append to chat history
+               st.session_state.chat_history.append((question, reply))
+               st.rerun() # Rerun to display the new message
             else:
-                st.warning("Please enter a question.")
+               st.warning("Please enter a question to get assistance.")
 
+# --- End of AI Assistant Help Section ---
+
+    
 
 
 # Main App Logic
