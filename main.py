@@ -444,4 +444,429 @@ def admin_dashboard():
 
         monthly = filtered.groupby([filtered["application_date"].dt.to_period("M"), "status"]).size().unstack().fillna(0)
         monthly.index = monthly.index.astype(str)
-        st.write("### 📈 Monthly Loan Approval 
+        st.write("### 📈 Monthly Loan Approval Trends")
+        fig1, ax1 = plt.subplots()
+        monthly.plot(ax=ax1, marker='o')
+        ax1.set_title("Loan Status Over Time")
+        st.pyplot(fig1)
+
+        st.write("### ✅ Low Risk People (Auto-Approved Loans with Low Risk Score)")
+        low_risk_loans = filtered[
+            (filtered["status"] == "approved") &
+            (filtered["remarks"].str.contains("Auto-approved", na=False))
+        ]
+        if low_risk_loans.empty:
+            st.info("No auto-approved low risk loans found.")
+        else:
+            display_cols = ["loan_id", "user_id", "amount", "income", "purpose", "application_date", "remarks"]
+            st.dataframe(low_risk_loans[display_cols].sort_values("application_date", ascending=False).reset_index(drop=True))
+
+        st.write("### 🎯 Loan Status by Purpose")
+        purpose_summary = filtered.groupby(["purpose", "status"]).size().unstack().fillna(0)
+        fig2, ax2 = plt.subplots()
+        purpose_summary.plot(kind="bar", stacked=True, ax=ax2)
+        ax2.set_title("Loan Purpose vs Status")
+        st.pyplot(fig2)
+
+
+# User Dashboard
+def user_dashboard():
+    global loans_df, loan_status_df
+    import google.generativeai as genai
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    model = genai.GenerativeModel('gemini-pro')
+   
+    st.sidebar.title("User Menu")
+    user_id = st.session_state.user["user_id"]
+    accounts_df = st.session_state.accounts_df
+    loans_df = st.session_state.loans_df
+    transactions_df = st.session_state.transactions_df
+
+    # Dark/Light Mode Toggle
+    
+    choice = st.sidebar.radio("Go to", [
+        "📈 Account Summary",
+        "📝 Apply for Loan",
+        "📊 Loan Status",
+        "💵 Transactions",
+        "🏦 Transfer Between Accounts",
+        "💳 Pay Monthly EMI",
+        "📚 Loan Repayment History",
+        "🤖 AI Assistant Help"
+    ])
+    
+    if choice == "📈 Account Summary":
+        st.subheader("Account Summary")
+    
+        acc = accounts_df[accounts_df["user_id"] == user_id]
+        if not acc.empty:
+            st.dataframe(acc)
+        else:
+            st.info("No account information found.")
+    
+        user_loans = loans_df[loans_df["user_id"] == user_id]
+        approved_loans = user_loans[user_loans["status"] == "approved"]
+        num_loans = len(approved_loans)
+        total_income = user_loans["income"].max() if not user_loans.empty else 0
+    
+        repayments = transactions_df[(transactions_df["user_id"] == user_id) & (transactions_df["loan_id"] != "")]
+        total_repaid = repayments["amount"].sum()
+    
+        user_transactions = transactions_df[transactions_df["user_id"] == user_id]
+        num_transactions = len(user_transactions)
+    
+        score = 50
+        if total_income > 50000:
+            score += 15
+        elif total_income > 20000:
+            score += 10
+        elif total_income > 10000:
+            score += 5
+    
+        if num_loans >= 3:
+            score += 10
+        elif num_loans == 2:
+            score += 5
+    
+        if total_repaid > 0:
+            score += min(15, total_repaid / 10000 * 5)
+    
+        if num_transactions > 10:
+            score += 10
+        elif num_transactions > 5:
+            score += 5
+    
+        score = min(100, score)
+        grade = "Excellent" if score >= 80 else "Good" if score >= 60 else "Fair" if score >= 40 else "Poor"
+    
+        if "credit_history" not in st.session_state:
+            st.session_state.credit_history = []
+        st.session_state.credit_history.append(score)
+    
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("💰 Monthly Income", f"₹{total_income}")
+        col2.metric("✅ Loans Approved", num_loans)
+        col3.metric("💳 Total Repaid", f"₹{total_repaid}")
+        col4.metric("🔄 Transactions", num_transactions)
+    
+        st.markdown(f"""
+            <div style='text-align: center; margin-top: 20px;'>
+                <h2 style='color: #4CAF50;'>📊 Your Credit Score: {score} / 100 ({grade})</h2>
+                <progress value='{score}' max='100' style='width: 80%; height: 25px;'></progress>
+            </div>
+        """, unsafe_allow_html=True)
+    
+        if len(st.session_state.credit_history) > 1:
+            st.line_chart(st.session_state.credit_history)
+    
+        if not approved_loans.empty:
+            loan = approved_loans.iloc[0]
+            app_date = pd.to_datetime(loan["application_date"], errors='coerce')
+            paid = transactions_df[(transactions_df["user_id"] == user_id) & (transactions_df["loan_id"] == loan["loan_id"])].shape[0]
+            next_due = app_date + pd.DateOffset(months=paid)
+            st.info(f"📅 Next EMI Due: {next_due.strftime('%Y-%m-%d')} (Loan ID: {loan['loan_id']})")
+        else:
+            st.info("No active loans. Apply now to build your credit!")
+    
+        if not user_transactions.empty:
+            user_transactions["date"] = pd.to_datetime(user_transactions["date"], errors='coerce')
+            tx_monthly = user_transactions.groupby(user_transactions["date"].dt.to_period("M"))["amount"].sum()
+            tx_monthly.index = tx_monthly.index.astype(str)
+            st.write("### 📊 Monthly Transaction Summary")
+            st.bar_chart(tx_monthly)
+        else:
+            st.write("No transactions to display.")
+
+    elif choice == "📝 Apply for Loan":
+        st.subheader("Loan Application Form")
+
+        aadhaar_input = st.text_input("Enter your Aadhaar Number to verify")
+        verified = False
+
+
+        if st.button("Verify Aadhaar"):
+            user_aadhaar = accounts_df[accounts_df["user_id"] == user_id]["aadhar"].values[0] if "aadhar" in accounts_df.columns else None
+            if user_aadhaar and str(user_aadhaar) == aadhaar_input:
+                st.success("✅ Aadhaar verified successfully.")
+                st.session_state.aadhaar_verified = True
+            else:
+                st.error("❌ Aadhaar verification failed.")
+                st.session_state.aadhaar_verified = False
+    
+        if st.session_state.get("aadhaar_verified", False):
+            st.markdown("### 📎 Upload Required Documents")
+            id_proof = st.file_uploader("Identity Proof (PAN, Voter ID, etc.)", type=["pdf", "jpg", "png"])
+            address_proof = st.file_uploader("Address Proof", type=["pdf", "jpg", "png"])
+            income_proof = st.file_uploader("Income Proof", type=["pdf", "jpg", "png"])
+            bank_statement = st.file_uploader("Bank Statement", type=["pdf", "jpg", "png"])
+    
+            amount = st.number_input("Loan Amount", min_value=1000)
+            purpose = st.selectbox("Purpose", ["Education", "Medical", "Home Renovation", "Vehicle", "Business", "Personal"])
+            income = st.number_input("Monthly Income", min_value=0)
+    
+            all_docs_uploaded = id_proof and address_proof and income_proof and bank_statement
+    
+            if st.button("Submit Application"):
+                if not all_docs_uploaded:
+                    st.warning("⚠️ Please upload all required documents before submission.")
+                else:
+                    train_df = loans_df[loans_df["status"] != "pending"]
+                    if train_df.shape[0] < 10 or len(train_df["status"].unique()) < 2:
+                        decision = "pending"
+                        remarks = "Awaiting admin review"
+                    else:
+                        train_df = train_df[["amount", "income", "status"]].dropna()
+                        X_train = train_df[["amount", "income"]]
+                        y_train = (train_df["status"] == "approved").astype(int)
+    
+                        model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
+                        model.fit(X_train, y_train)
+    
+                        X_new = np.array([[amount, income]])
+                        prob = model.predict_proba(X_new)[0][1]
+                        risk_score = round((1 - prob) * 100, 2)
+    
+                        if risk_score <= 39:
+                            decision = "approved"
+                            remarks = f"Auto-approved. Risk Score: {risk_score}%"
+                        elif risk_score >= 61:
+                            auto_reason = random.choice([
+                                "Low credit score based on prior history",
+                                "Insufficient income compared to requested amount",
+                                "Debt-to-income ratio too high",
+                                "Missing financial documentation",
+                                "Loan amount exceeds eligibility"
+                            ])
+                            decision = "declined"
+                            remarks = f"Auto-declined: {auto_reason}. Risk Score: {risk_score}%"
+                        else:
+                            decision = "pending"
+                            remarks = f"Awaiting admin review. Risk Score: {risk_score}%"
+    
+                    loan_id = f"L{len(loans_df)+1:03d}"
+                    new_loan = {
+                        "loan_id": loan_id,
+                        "user_id": user_id,
+                        "amount": amount,
+                        "purpose": purpose,
+                        "income": income,
+                        "status": decision,
+                        "application_date": pd.Timestamp.today().strftime('%Y-%m-%d'),
+                        "remarks": remarks
+                    }
+    
+                    loans_df.loc[len(loans_df)] = new_loan
+                    loan_status_df.loc[len(loan_status_df)] = new_loan
+                    save_csv(loans_df, loans_file)
+                    save_csv(loan_status_df, loan_status_file)
+    
+                    doc_folder = os.path.join("documents", loan_id)
+                    os.makedirs(doc_folder, exist_ok=True)
+    
+                    def save_file(uploaded_file, name):
+                        with open(os.path.join(doc_folder, name), "wb") as f:
+                            f.write(uploaded_file.read())
+    
+                    save_file(id_proof, "identity_" + id_proof.name)
+                    save_file(address_proof, "address_" + address_proof.name)
+                    save_file(income_proof, "income_" + income_proof.name)
+                    save_file(bank_statement, "bank_" + bank_statement.name)
+    
+                    # ✅ Email Notification
+                    user_row = users_df[users_df["user_id"] == user_id]
+                    user_email = user_row["email"].values[0] if "email" in user_row.columns else None
+                    user_name = user_row["username"].values[0]
+                    if user_email:
+                        send_loan_email(user_email, user_name, loan_id, decision, remarks)
+                    else:
+                        st.warning("User email not found. Email notification skipped.")
+    
+                    st.success(f"Loan Application Submitted! Status: **{decision.capitalize()}**")
+                    st.info(f"📝 Remarks: {remarks}")
+
+
+
+    elif choice == "📊 Loan Status":
+        st.subheader("Your Loan Applications")
+        user_loans = loans_df[loans_df["user_id"] == user_id]
+        st.dataframe(user_loans)
+
+    elif choice == "💵 Transactions":
+        st.subheader("Transactions")
+        tx = transactions_df[transactions_df["user_id"] == user_id]
+        st.dataframe(tx)
+
+    elif choice == "🏦 Transfer Between Accounts":
+        st.subheader("Transfer Amount to Another Account")
+        sender_account = accounts_df[accounts_df["user_id"] == user_id].iloc[0]
+        sender_balance = sender_account["balance"]
+        sender_account_no = sender_account["account_number"]
+
+        st.write(f"💳 Your Account Number: `{sender_account_no}`")
+        st.write(f"💰 Your Current Balance: ₹{sender_balance}")
+
+        recipient_account_no = st.text_input("Recipient Account Number")
+
+        if recipient_account_no:
+            recipient_row = accounts_df[accounts_df["account_number"] == recipient_account_no]
+            if not recipient_row.empty:
+                recipient_user_id = recipient_row.iloc[0]["user_id"]
+                recipient_user = users_df[users_df["user_id"] == recipient_user_id].iloc[0]
+                recipient_name = recipient_user["username"]
+                recipient_mobile = recipient_row.iloc[0]["mobile"]
+                st.info(f"👤 Recipient Name: **{recipient_name}**\n📱 Mobile: **{recipient_mobile}**")
+            else:
+                st.warning("⚠️ No user found with this account number.")
+
+        transfer_amount = st.number_input("Amount to Transfer", min_value=1.0)
+        payment_method = st.radio("Select Payment Method", ["UPI", "Net Banking", "Bank Transfer"])
+        entered_password = st.text_input("Enter your password to confirm", type="password")
+
+        if st.button("Transfer"):
+            actual_password = users_df[users_df["user_id"] == user_id].iloc[0]["password"]
+            if not recipient_account_no:
+                st.warning("Please enter a valid recipient account number.")
+            elif recipient_account_no == sender_account_no:
+                st.error("❌ You cannot transfer to your own account.")
+            elif recipient_account_no not in accounts_df["account_number"].values:
+                st.error("❌ Recipient account not found.")
+            elif transfer_amount > sender_balance:
+                st.error("❌ Insufficient balance.")
+            elif entered_password != actual_password:
+                st.error("❌ Incorrect password.")
+            else:
+                accounts_df.loc[accounts_df["user_id"] == user_id, "balance"] -= transfer_amount
+                accounts_df.loc[accounts_df["account_number"] == recipient_account_no, "balance"] += transfer_amount
+                save_csv(accounts_df, accounts_file)
+
+                sender_tx = {
+                    "user_id": user_id,
+                    "loan_id": "",
+                    "amount": -transfer_amount,
+                    "method": f"Transfer Out ({payment_method})",
+                    "date": pd.Timestamp.today().strftime('%Y-%m-%d')
+                }
+                recipient_user_id = accounts_df[accounts_df["account_number"] == recipient_account_no].iloc[0]["user_id"]
+                recipient_tx = {
+                    "user_id": recipient_user_id,
+                    "loan_id": "",
+                    "amount": transfer_amount,
+                    "method": f"Transfer In ({payment_method})",
+                    "date": pd.Timestamp.today().strftime('%Y-%m-%d')
+                }
+                transactions_df.loc[len(transactions_df)] = sender_tx
+                transactions_df.loc[len(transactions_df)] = recipient_tx
+                save_csv(transactions_df, transactions_file)
+
+                new_balance = accounts_df[accounts_df["user_id"] == user_id].iloc[0]["balance"]
+                st.success(f"✅ ₹{transfer_amount} transferred to `{recipient_account_no}` successfully!")
+                st.info(f"💰 Updated Balance: ₹{new_balance}")
+
+    elif choice == "💳 Pay Monthly EMI":
+        st.subheader("Pay Monthly EMI")
+        approved_loans = loans_df[(loans_df["user_id"] == user_id) & (loans_df["status"] == "approved")]
+        if approved_loans.empty:
+            st.info("No approved loans found.")
+            return
+
+        selected_loan_id = st.selectbox("Select Loan ID", approved_loans["loan_id"])
+        loan = approved_loans[approved_loans["loan_id"] == selected_loan_id].iloc[0]
+        loan_amount = loan["amount"]
+        application_date = pd.to_datetime(loan["application_date"])
+        tenure = 12
+        interest = 10 / 100 / 12
+        emi = round((loan_amount * interest * (1 + interest) ** tenure) / ((1 + interest) ** tenure - 1), 2)
+
+        paid_emis = transactions_df[(transactions_df["user_id"] == user_id) & (transactions_df["loan_id"] == selected_loan_id)]
+        paid_count = paid_emis.shape[0]
+        remaining = tenure - paid_count
+
+        st.write(f"📄 Loan: ₹{loan_amount}  \n💰 EMI: ₹{emi}  \n📆 Remaining: {remaining} of {tenure}")
+
+        if remaining == 0:
+            st.success("🎉 Loan already paid in full.")
+            return
+
+        method = st.radio("Payment Method", ["UPI", "Net Banking"])
+        if st.button("Pay EMI"):
+            new_tx = {
+                "user_id": user_id,
+                "loan_id": selected_loan_id,
+                "amount": emi,
+                "method": method,
+                "date": pd.Timestamp.today().strftime('%Y-%m-%d')
+            }
+            transactions_df.loc[len(transactions_df)] = new_tx
+            save_csv(transactions_df, transactions_file)
+            st.success(f"✅ EMI of ₹{emi} paid successfully.")
+            st.rerun()
+
+        st.write("### 🗓️ EMI Payment Schedule")
+        schedule = []
+        for i in range(tenure):
+            due = application_date + pd.DateOffset(months=i)
+            status = "Paid" if i < paid_count else ("Due" if i == paid_count else "Upcoming")
+            schedule.append({
+                "Installment #": i + 1,
+                "Due Date": due.date(),
+                "EMI Amount": emi,
+                "Status": status
+            })
+        st.dataframe(pd.DataFrame(schedule))
+
+    elif choice == "📚 Loan Repayment History":
+        st.subheader("Loan Repayment History")
+        tx = transactions_df[transactions_df["user_id"] == user_id]
+        if tx.empty:
+            st.info("No repayments made yet.")
+        else:
+            st.dataframe(tx)
+            summary = tx.groupby("loan_id")["amount"].sum().reset_index().rename(columns={"amount": "Total Paid"})
+            st.write("### Summary by Loan")
+            st.dataframe(summary)
+
+    elif choice == "🤖 AI Assistant Help":
+        st.subheader("🤖 AI Chat Assistant")
+        st.markdown("Ask any questions related to your account, EMI, transfers, etc.")
+
+        import google.generativeai as genai
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        model = genai.GenerativeModel("gemini-pro")
+ # or any model returned from genai.list_models()
+
+
+        if "chat_history" not in st.session_state:
+            st.session_state.chat_history = []
+
+        for user_input, bot_reply in st.session_state.chat_history:
+            st.markdown(f"**🧑 You:** {user_input}")
+            st.markdown(f"**🤖 Assistant:** {bot_reply}")
+
+        question = st.text_input("Type your question here...")
+        if st.button("Ask"):
+            if question.strip():
+                try:
+                    response = model.generate_content(question)
+                    reply = response.text.strip()
+                except Exception as e:
+                    reply = f"⚠️ Error: {e}"
+
+                st.session_state.chat_history.append((question, reply))
+                st.rerun()
+            else:
+                st.warning("Please enter a question.")
+
+
+
+# Main App Logic
+if st.session_state.user:
+    st.sidebar.write(f"👋 Welcome, {st.session_state.user['username']}")
+    if st.sidebar.button("Logout"):
+        st.session_state.user = None
+        st.rerun()
+    if st.session_state.user.get("role") == "admin":
+        admin_dashboard()
+    else:
+        user_dashboard()
+else:
+    login()
